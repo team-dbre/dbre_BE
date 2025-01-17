@@ -27,6 +27,7 @@ media
 .DS_Store
 # Distribution / packaging
 .Python
+.python-version
 build/
 develop-eggs/
 dist/
