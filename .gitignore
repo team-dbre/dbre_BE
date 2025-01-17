@@ -23,6 +23,8 @@ media
 # C extensions
 *.so
 
+# macOS-specific files
+.DS_Store
 # Distribution / packaging
 .Python
 build/
