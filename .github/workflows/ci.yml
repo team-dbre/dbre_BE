@@ -54,6 +54,20 @@ jobs:
       with:
         python-version: "3.12.6"
 
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Cache mypy
+      uses: actions/cache@v3
+      with:
+        path: .mypy_cache
+        key: mypy-cache-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+
     - name: Install Poetry
       run: |
         curl -sSL https://install.python-poetry.org | python3 -
@@ -61,23 +75,28 @@ jobs:
 
     - name: Install dependencies
       run: |
-        poetry config virtualenvs.in-project true  # .venv 디렉토리에 가상환경 생성
+        poetry config virtualenvs.in-project true
         poetry install
 
-    - name: Activate virtual environment and run migrations
+    - name: Run migrations
       run: |
-        source .venv/bin/activate  # 가상환경 활성화
-        python manage.py makemigrations
-        python manage.py migrate
+        poetry run python manage.py makemigrations
+        poetry run python manage.py migrate
+
+    - name: Run type checking
+      run: |
+        poetry run mypy . --install-types --non-interactive || true
+        poetry run mypy dbre_BE --strict
+
+    - name: Run code formatting check
+      run: |
+        poetry run black . --check
+        poetry run isort . --check-only
 
     - name: Run tests
       run: |
-        source .venv/bin/activate  # 가상환경 활성화
-        poetry run mypy --install-types --non-interactive
-        chmod +x test.sh
-        ./test.sh
+        poetry run python manage.py test
 
-    - name: Collect static files (optional)
+    - name: Collect static files
       run: |
-        source .venv/bin/activate  # 가상환경 활성화
-        python manage.py collectstatic --noinput
+        poetry run python manage.py collectstatic --noinput
