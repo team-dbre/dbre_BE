@@ -2,7 +2,7 @@ name: Django CI
 
 on:
   push:
-    branches: [ main, develop, feature/* ]
+    branches: [main, develop, feature/*]
   pull_request:
     branches:
       - main
@@ -19,7 +19,7 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
         ports:
-          - ${{ secrets.POSTGRES_PORT }}:5432
+          - 5432:5432
         options: >-
           --health-cmd="pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }}"
           --health-interval=10s
@@ -29,7 +29,7 @@ jobs:
       redis:
         image: redis:6.2
         ports:
-          - ${{ secrets.REDIS_PORT }}:6379
+          - 6666:6379
 
     env:
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -39,11 +39,11 @@ jobs:
       POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
       POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
-      POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+      POSTGRES_PORT: 5432
       POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
       DEBUG: ${{ secrets.DEBUG }}
-      REDIS_URL: redis://localhost:${{ secrets.REDIS_PORT }}/1
-      STATIC_ROOT: ${{ secrets.STATIC_ROOT }}
+      REDIS_URL: redis://localhost:6666/1
+      STATIC_ROOT: /app/staticfiles
 
     steps:
     - name: Checkout code
@@ -72,4 +72,3 @@ jobs:
     - name: Collect static files (optional)
       run: |
         python manage.py collectstatic --noinput
-
