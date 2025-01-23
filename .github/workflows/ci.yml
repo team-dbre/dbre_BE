@@ -52,11 +52,12 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: "3.12"
+        python-version: "3.12.6"
 
     - name: Install dependencies
       run: |
         pip install poetry
+        poetry env use 3.12.6
         poetry install
 
     - name: Run migrations
