@@ -57,8 +57,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install poetry==2.x.x
-        poetry env use 3.12.6
-        poetry install
+        poetry install --no-root
 
     - name: Run migrations
       run: |
