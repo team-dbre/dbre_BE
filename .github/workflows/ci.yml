@@ -1,0 +1,75 @@
+name: Django CI
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - ${{ secrets.POSTGRES_PORT }}:5432
+        options: >-
+          --health-cmd="pg_isready -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }}"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:6.2
+        ports:
+          - ${{ secrets.REDIS_PORT }}:6379
+
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      IMP_API_KEY: ${{ secrets.IMP_API_KEY }}
+      IMP_API_SECRET: ${{ secrets.IMP_API_SECRET }}
+      IMP_MERCHANT_ID: ${{ secrets.IMP_MERCHANT_ID }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+      POSTGRES_PORT: ${{ secrets.POSTGRES_PORT }}
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      DEBUG: ${{ secrets.DEBUG }}
+      REDIS_URL: redis://localhost:${{ secrets.REDIS_PORT }}/1
+      STATIC_ROOT: ${{ secrets.STATIC_ROOT }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        pip install poetry
+        poetry install
+
+    - name: Run migrations
+      run: |
+        python manage.py makemigrations
+        python manage.py migrate
+
+    - name: Run tests
+      run: |
+        chmod +x test.sh
+        ./test.sh
+
+    - name: Collect static files (optional)
+      run: |
+        python manage.py collectstatic --noinput
+
