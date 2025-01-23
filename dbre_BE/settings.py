@@ -114,13 +114,14 @@ CaCHES = {
     }
 }
 
-STATIC_URL = "/static/"
+STATIC_URL = "/staticfiles/"
 
 # STATIC_ROOT 설정 (운영 환경용)
-STATIC_ROOT = os.getenv("STATIC_ROOT", os.path.join(BASE_DIR, "staticfiles"))
+# STATIC_ROOT = os.getenv("STATIC_ROOT", os.path.join(BASE_DIR, "staticfiles"))
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
-# 개발 환경에서 사용할 추가 static 디렉토리 설정
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+# 개발 환경에서 사용할 추가 staticfiles 디렉토리 설정
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "staticfiles")]
 
 
 # Password validation
@@ -157,7 +158,7 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "staticfiles/"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field

@@ -43,7 +43,7 @@ jobs:
       POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
       DEBUG: ${{ secrets.DEBUG }}
       REDIS_URL: redis://localhost:6666/1
-      STATIC_ROOT: /app/staticfiles
+      STATIC_ROOT: staticfiles
 
     steps:
     - name: Checkout code
@@ -99,7 +99,6 @@ jobs:
 
     - name: Collect static files
       run: |
-        mkdir -p static  # static 디렉토리 생성
-        sudo chmod -R 777 static  # 권한 부여
+        mkdir -p staticfiles
+        sudo chown -R $USER:$USER staticfiles
         poetry run python manage.py collectstatic --noinput
-    
