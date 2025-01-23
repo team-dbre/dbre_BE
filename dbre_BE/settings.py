@@ -24,10 +24,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
+"""
+env load
+"""
 SECRET_KEY = os.getenv("SECRET_KEY")
-
+IMP_API_KEY = os.getenv("IMP_API_KEY")
+IMP_API_SECRET = os.getenv("IMP_API_SECRET")
+IMP_MERCHANT_ID = os.getenv("IMP_MERCHANT_ID")
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+
+DEBUG = os.getenv("DEBUG")
 
 ALLOWED_HOSTS = []
 
@@ -43,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'rest_framework',
     'drf_spectacular',
+    'payment',
 ]
 
 
@@ -86,9 +93,22 @@ WSGI_APPLICATION = 'dbre_BE.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': "dbre_test",
+        'USER': os.getenv("POSTGRES_USER"),
+        'PASSWORD': os.getenv("POSTGRES_PASSWORD"),
+        'HOST': os.getenv("POSTGRES_HOST"),
+        'PORT': os.getenv("POSTGRES_PORT"),
     }
+}
+
+# redis 캐시 설정
+CaCHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': os.getenv("REDIS_LOCATION"),
+    }
+
 }
 
 
