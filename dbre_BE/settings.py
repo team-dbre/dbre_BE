@@ -114,14 +114,14 @@ CaCHES = {
     }
 }
 
-STATIC_URL = "/staticfiles/"
+STATIC_URL = "static/"
 
 # STATIC_ROOT 설정 (운영 환경용)
 # STATIC_ROOT = os.getenv("STATIC_ROOT", os.path.join(BASE_DIR, "staticfiles"))
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # 개발 환경에서 사용할 추가 staticfiles 디렉토리 설정
-STATICFILES_DIRS = [os.path.join(BASE_DIR, "staticfiles")]
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
 
 
 # Password validation
