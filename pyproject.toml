@@ -7,6 +7,9 @@ authors = [
 ]
 #readme = "README.md"
 requires-python = "3.12.6"
+packages = [
+    { include = "dbre_BE" }  # 프로젝트의 실제 패키지 이름으로 변경
+]
 dependencies = [
     "django (>=5.1.5,<6.0.0)"
 ]
