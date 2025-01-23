@@ -73,6 +73,7 @@ jobs:
     - name: Run tests
       run: |
         source .venv/bin/activate  # 가상환경 활성화
+        poetry run mypy --install-types --non-interactive
         chmod +x test.sh
         ./test.sh
 
