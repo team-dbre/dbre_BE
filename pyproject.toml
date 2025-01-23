@@ -21,4 +21,6 @@ drf-spectacular = "^0.28.0"
 python-dotenv = "^1.0.1"
 requests = "^2.32.3"
 portone-server-sdk = "^0.10.0"
+psycopg2 = "^2.9.10"
+gunicorn = "^23.0.0"
 

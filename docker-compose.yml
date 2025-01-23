@@ -16,14 +16,22 @@ services:
 
   web:
     build: .
+    env_file: .env
     ports:
       - "8000:8000"
     volumes:
       - ./dbre_BE:/app/dbre_BE
+    working_dir: /app
+    command: gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application
+
     environment:
+      - ./staticfiles:/app/staticfiles
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
+      - DJANGO_SETTINGS_MODULE=dbre_BE.settings
+      - PYTHONPATH=/app
+
     depends_on:
       db:
         condition: service_healthy

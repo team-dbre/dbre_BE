@@ -35,7 +35,7 @@ IMP_MERCHANT_ID = os.getenv("IMP_MERCHANT_ID")
 
 DEBUG = os.getenv("DEBUG")
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 
 # Application definition
@@ -94,7 +94,7 @@ WSGI_APPLICATION = 'dbre_BE.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': "dbre_test",
+        'NAME': os.getenv('POSTGRES_DB', 'mydatabase'),
         'USER': os.getenv("POSTGRES_USER"),
         'PASSWORD': os.getenv("POSTGRES_PASSWORD"),
         'HOST': os.getenv("POSTGRES_HOST"),
@@ -106,10 +106,20 @@ DATABASES = {
 CaCHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': os.getenv("REDIS_LOCATION"),
+        'LOCATION': os.getenv("REDIS_URL"),
     }
 
 }
+
+STATIC_URL = '/static/'
+
+# STATIC_ROOT 설정 (운영 환경용)
+STATIC_ROOT = os.getenv('STATIC_ROOT', os.path.join(BASE_DIR, 'staticfiles'))
+
+# 개발 환경에서 사용할 추가 static 디렉토리 설정
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static')
+]
 
 
 # Password validation
