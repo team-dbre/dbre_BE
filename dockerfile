@@ -25,7 +25,11 @@ ENV PATH="${POETRY_HOME}/bin:$PATH"
 COPY . .
 
 # Poetry 의존성 설치 (소스 코드 복사 후 설치)
-RUN poetry install --no-root --no-interaction --no-ansi || exit 1
+RUN poetry install --no-root --no-interaction --no-ansi || { echo "Poetry install failed"; exit 1; }
+
+# gunicorn 설치 확인
+RUN poetry run pip show gunicorn || { echo "Gunicorn is not installed"; exit 1; }
+
 
 # Django용 명령어 실행
 CMD ["sh", "-c", "poetry run python manage.py collectstatic --noinput && \
