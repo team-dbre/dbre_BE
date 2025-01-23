@@ -54,21 +54,29 @@ jobs:
       with:
         python-version: "3.12.6"
 
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "export PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+
     - name: Install dependencies
       run: |
-        pip install poetry==2.0.0
-        poetry install --no-root
+        poetry config virtualenvs.in-project true  # .venv 디렉토리에 가상환경 생성
+        poetry install
 
-    - name: Run migrations
+    - name: Activate virtual environment and run migrations
       run: |
+        source .venv/bin/activate  # 가상환경 활성화
         python manage.py makemigrations
         python manage.py migrate
 
     - name: Run tests
       run: |
+        source .venv/bin/activate  # 가상환경 활성화
         chmod +x test.sh
         ./test.sh
 
     - name: Collect static files (optional)
       run: |
+        source .venv/bin/activate  # 가상환경 활성화
         python manage.py collectstatic --noinput
