@@ -1,30 +1,34 @@
-from django.shortcuts import render
+from typing import Any
 
-# Create your views here.
-from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
-from .models import Terms
-from .serializers import TermsModelSerializer
-from rest_framework.response import Response
-from rest_framework.views import APIView
+from django.http.request import HttpRequest
+from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from drf_spectacular.utils import extend_schema, extend_schema_view
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from .models import Terms
+from .serializers import TermsModelSerializer
+
 
 @extend_schema_view(
     get=extend_schema(
         summary="List all Terms",
         description="Retrieve a list of all Terms entries.",
-        responses=TermsModelSerializer
+        responses=TermsModelSerializer,
     ),
     post=extend_schema(
         summary="Create a new Term",
         description="Create a new Terms entry by providing 'use' and 'privacy_policy' fields.",
         request=TermsModelSerializer,
-        responses=TermsModelSerializer
-    )
+        responses=TermsModelSerializer,
+    ),
 )
 class CreateTermAPI(ListCreateAPIView):
     queryset = Terms.objects.all()
     serializer_class = TermsModelSerializer
+
 
 @extend_schema_view(
     get=extend_schema(
@@ -33,10 +37,13 @@ class CreateTermAPI(ListCreateAPIView):
     )
 )
 class LatestTermsAPI(APIView):
-    def get(self, request, *args, **kwargs):
-        latest_term = Terms.objects.latest('created_at')  # created_at 기준으로 가장 최근 데이터 가져오기
+    def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
+        latest_term = Terms.objects.latest(
+            "created_at"
+        )  # created_at 기준으로 가장 최근 데이터 가져오기
         serializer = TermsModelSerializer(latest_term)
         return Response(serializer.data)
+
 
 @extend_schema_view(
     get=extend_schema(
@@ -47,4 +54,4 @@ class LatestTermsAPI(APIView):
 class TermsDetailAPI(RetrieveAPIView):
     queryset = Terms.objects.all()
     serializer_class = TermsModelSerializer
-    lookup_field = 'id'  # URL에서 id를 기준으로 조회
+    lookup_field = "id"  # URL에서 id를 기준으로 조회

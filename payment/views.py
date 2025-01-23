@@ -1,6 +1,7 @@
 import requests
-from django.http import JsonResponse
+
 from django.conf import settings
+from django.http import JsonResponse
 from django.shortcuts import render
 
 
@@ -19,6 +20,7 @@ def get_portone_token():
         return result["response"]["access_token"]
     else:
         return None
+
 
 def get_token_view(request):
     token = get_portone_token()
@@ -55,6 +57,5 @@ def verify_payment(request):
     return JsonResponse({"success": False, "message": "잘못된 요청"})
 
 
-
 def payment_page(request):
-    return render(request, 'payment.html')
+    return render(request, "payment.html")
