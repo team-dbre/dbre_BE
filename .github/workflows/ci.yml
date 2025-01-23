@@ -99,4 +99,7 @@ jobs:
 
     - name: Collect static files
       run: |
+        mkdir -p static  # static 디렉토리 생성
+        sudo chmod -R 777 static  # 권한 부여
         poetry run python manage.py collectstatic --noinput
+    
