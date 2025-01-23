@@ -19,6 +19,7 @@ from django.urls import path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 from payment.views import get_token_view, payment_page, verify_payment
+from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -29,5 +30,7 @@ urlpatterns = [
     path('verify-payment/', verify_payment, name='verify_payment'),
 
     path('payment/', payment_page, name='payment_page'),
-
+    path('term/', CreateTermAPI.as_view(), name='create_term'),
+    path('term/latest/', LatestTermsAPI.as_view(), name='latest_term'),  # 가장 최근 데이터 조회
+    path('term/<int:id>/', TermsDetailAPI.as_view(), name='term_detail'),  # 특정 ID 데이터 조회
 ]
