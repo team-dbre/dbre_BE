@@ -56,7 +56,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install poetry==2.x.x
+        pip install poetry==2.0.0
         poetry install --no-root
 
     - name: Run migrations
