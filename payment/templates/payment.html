@@ -12,7 +12,7 @@
     <script>
         function requestPayment() {
             var IMP = window.IMP;
-            IMP.init("imp82341352");  // 테스트용 가맹점 식별코드
+            IMP.init("imp45748364");  // 테스트용 가맹점 식별코드
 
             IMP.request_pay({
                 pg: "kcp",
@@ -51,3 +51,51 @@
     </script>
 </body>
 </html>
+
+
+<!--<!DOCTYPE html>-->
+<!--<html lang="ko">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
+<!--    <title>포트원 테스트 결제</title>-->
+<!--    <script src="https://cdn.iamport.kr/v2/iamport.js"></script>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <button id="payButton">결제하기</button>-->
+
+<!--    <script type="module">-->
+<!--        import * as PortOne from '@portone/browser-sdk/v2';-->
+
+<!--        document.getElementById('payButton').addEventListener('click', async () => {-->
+<!--            try {-->
+<!--                const response = await PortOne.requestPayment({-->
+<!--                    storeId: '',  // 관리자 콘솔에서 확인한 Store ID-->
+<!--                    channelKey: '', // 관리자 콘솔에서 확인한 Channel Key-->
+<!--                    paymentId: `TEST_ORDER_${Date.now()}`,  // 고유한 주문번호-->
+<!--                    orderName: '테스트 상품',-->
+<!--                    totalAmount: 100,  // 결제 금액 (단위: KRW)-->
+<!--                    currency: 'CURRENCY_KRW',-->
+<!--                    payMethod: 'CARD',  // 테스트 결제 수단 (CARD, BANK, VBANK 등)-->
+<!--                    customer: {-->
+<!--                        email: 'test@example.com',-->
+<!--                        name: '홍길동',-->
+<!--                        phone: '01012345678'-->
+<!--                    }-->
+<!--                });-->
+
+<!--                if (response?.code) {-->
+<!--                    console.error('결제 실패:', response.message);-->
+<!--                    alert(`결제 실패: ${response.message}`);-->
+<!--                } else {-->
+<!--                    console.log('결제 성공:', response);-->
+<!--                    alert(`결제 성공! 결제 ID: ${response.paymentId}`);-->
+<!--                }-->
+<!--            } catch (error) {-->
+<!--                console.error('결제 에러:', error);-->
+<!--                alert('결제 요청 중 오류가 발생했습니다.');-->
+<!--            }-->
+<!--        });-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
