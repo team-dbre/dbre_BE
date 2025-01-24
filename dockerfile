@@ -1,22 +1,37 @@
-FROM python:3.13-slim
+# 최신 Slim Python 이미지 사용
+FROM python:3.12.6-slim
 
+# 작업 디렉토리 설정
 WORKDIR /app
 
-# ENV
+# 환경 변수 설정
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    POETRY_VERSION=2.0.0 \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1
 
-# PostgreSQL 의존성 설치
-RUN apt-get update \
-    && apt-get install -y libpq-dev gcc \
-    && rm -rf /var/lib/apt/lists/*
+# PostgreSQL 및 기타 의존성 설치
+RUN apt-get update && \
+    apt-get install -y libpq-dev gcc && \
+    rm -rf /var/lib/apt/lists/*
 
 # Poetry 설치
 RUN pip install "poetry==$POETRY_VERSION"
-ENV PATH="$POETRY_HOME/bin:$PATH"
+ENV PATH="${POETRY_HOME}/bin:$PATH"
 
-# 의존성 파일 복사 및 설치
-COPY pyproject.toml poetry.lock alembic.ini ./
-RUN poetry install --no-root --no-dev
+# 소스 코드 복사 (전체 프로젝트 먼저 복사)
+COPY . .
+
+# Poetry 의존성 설치 (소스 코드 복사 후 설치)
+RUN poetry install --no-root --no-interaction --no-ansi || { echo "Poetry install failed"; exit 1; }
+
+# gunicorn 설치 확인
+RUN poetry run pip show gunicorn || { echo "Gunicorn is not installed"; exit 1; }
 
 
-CMD ["sh", "-c", "poetry lock --no-update && poetry install && python manage.py collectstatic --noinput && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"]
-
+# Django용 명령어 실행
+CMD ["sh", "-c", "poetry run python manage.py collectstatic --noinput && \
+                 poetry run python manage.py migrate && \
+                 poetry run gunicorn --bind 0.0.0.0:8000 my_project.wsgi:application"]

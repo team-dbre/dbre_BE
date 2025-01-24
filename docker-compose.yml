@@ -1,32 +1,38 @@
 
 services:
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/conf.d:/etc/nginx/conf.d
-      - /etc/letsencrypt:/etc/nginx/ssl
-    depends_on:
-      - web
-    restart: always
+#  nginx:
+#    build:
+#      context: ./nginx
+#      dockerfile: Dockerfile
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./nginx/conf.d:/etc/nginx/conf.d
+#      - /etc/letsencrypt:/etc/nginx/ssl
+#    depends_on:
+#      - web
+#    restart: always
 
   web:
     build: .
+    env_file: .env
     ports:
       - "8000:8000"
     volumes:
-      - ./src:/app/src
+      - ./dbre_BE:/app/dbre_BE
+    working_dir: /app
+    command: poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application
+
     environment:
-      - ENV=prod
-      - DATABASE_URL=${DATABASE_URL}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS}
-      - AWS_REGION=${AWS_REGION}
-      - CLIENT_MAX_BODY_SIZE=10M
+      - ./staticfiles:/app/staticfiles
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST=${POSTGRES_HOST}
+      - DJANGO_SETTINGS_MODULE=dbre_BE.settings
+      - PYTHONPATH=/app
+
     depends_on:
       db:
         condition: service_healthy
@@ -41,12 +47,19 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "5555:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6666:6379"
+    restart: always
+
 
 volumes:
   postgres_data:

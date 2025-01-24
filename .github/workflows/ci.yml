@@ -1,0 +1,104 @@
+name: Django CI
+
+on:
+  push:
+    branches: [main, develop, feature/*]
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+        ports:
+          - 5555:5432
+        options: >-
+          --health-cmd=pg_isready
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6666:6379
+
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      IMP_API_KEY: ${{ secrets.IMP_API_KEY }}
+      IMP_API_SECRET: ${{ secrets.IMP_API_SECRET }}
+      IMP_MERCHANT_ID: ${{ secrets.IMP_MERCHANT_ID }}
+      POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
+      POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
+      POSTGRES_PORT: 5555
+      POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
+      DEBUG: ${{ secrets.DEBUG }}
+      REDIS_URL: redis://localhost:6666/1
+      STATIC_ROOT: staticfiles
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12.6"
+
+    - name: Cache Poetry dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pypoetry
+        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-poetry-
+
+    - name: Cache mypy
+      uses: actions/cache@v3
+      with:
+        path: .mypy_cache
+        key: mypy-cache-${{ runner.os }}-${{ hashFiles('**/pyproject.toml') }}
+
+    - name: Install Poetry
+      run: |
+        curl -sSL https://install.python-poetry.org | python3 -
+        echo "export PATH=$HOME/.local/bin:$PATH" >> $GITHUB_ENV
+
+    - name: Install dependencies
+      run: |
+        poetry config virtualenvs.in-project true
+        poetry install
+
+    - name: Run migrations
+      run: |
+        poetry run python manage.py makemigrations
+        poetry run python manage.py migrate
+
+    - name: Run type checking
+      run: |
+        poetry run mypy . --install-types --non-interactive || true
+        poetry run mypy dbre_BE --strict
+
+    - name: Run code formatting check
+      run: |
+        poetry run black . --check
+        poetry run isort . --check-only
+
+    - name: Run tests
+      run: |
+        poetry run python manage.py test
+
+    - name: Collect static files
+      run: |
+        mkdir -p staticfiles
+        sudo chown -R $USER:$USER staticfiles
+        poetry run python manage.py collectstatic --noinput
