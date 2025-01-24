@@ -1,6 +1,6 @@
 from typing import Optional
 
-import requests  # type: ignore
+import requests
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
