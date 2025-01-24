@@ -161,7 +161,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# pytype static type analyzer
+# pytype staticfiles type analyzer
 .pytype/
 
 # Cython debug symbols
@@ -361,7 +361,7 @@ fabric.properties
 
 # Pyre type checker
 
-# pytype static type analyzer
+# pytype staticfiles type analyzer
 
 # Cython debug symbols
 

@@ -11,6 +11,11 @@ dependencies = [
     "django (>=5.1.5,<6.0.0)"
 ]
 
+[tool.poetry]
+packages = [
+    { include = "dbre_BE" }
+]
+package-mode = true
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
@@ -23,4 +28,41 @@ requests = "^2.32.3"
 portone-server-sdk = "^0.10.0"
 psycopg2 = "^2.9.10"
 gunicorn = "^23.0.0"
+black = "^24.10.0"
+isort = "^5.13.2"
+mypy = "^1.14.1"
+django-stubs = "^5.1.2"
 
+[tool.black]
+line-length = 88  # 코드 한 줄의 최대 길이 (기본값: 88)
+target-version = ["py312"]  # Python 버전 명시
+
+[tool.isort]
+profile = "black"  # Black과 호환되도록 설정
+atomic = true
+force_grid_wrap = 0
+include_trailing_comma = true
+lines_after_imports = 2
+lines_between_types = 1
+multi_line_output = 3
+use_parentheses = true
+
+[tool.mypy]
+python_version = "3.12"  # Python 버전 명시
+plugins = ["mypy_django_plugin.main"]  # Django 플러그인 활성화
+
+# 타입 검사 옵션
+disallow_untyped_defs = true  # 모든 함수에 타입 힌트를 요구
+ignore_missing_imports = true  # 누락된 import 경고 무시
+warn_unused_ignores = true  # 사용되지 않는 ignore 경고 표시
+warn_return_any = true  # 반환값이 Any일 경우 경고
+
+# 특정 모듈에 대한 예외 처리 (선택 사항)
+[[tool.mypy.overrides]]
+module = ["django", "django.db.models"]
+ignore_missing_imports = true
+
+[tool.django-stubs]
+django_settings_module = "dbre_BE.settings"
+ignore_missing_model_attributes = true  # 모델 속성 누락 무시
+strict_settings = true  # settings.py의 엄격한 타입 검사 활성화
