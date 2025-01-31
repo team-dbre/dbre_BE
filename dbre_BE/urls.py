@@ -50,4 +50,7 @@ urlpatterns = [
     path(
         "term/<int:id>/", TermsDetailAPI.as_view(), name="term_detail"
     ),  # 특정 ID 데이터 조회
+    # path('request-payment/', request_payment, name='request_payment'),
+    # path('verify-payment/', verify_payment, name='verify_payment'),
+    # path('payment-test/', payment_test_view, name='payment_test'),
 ]

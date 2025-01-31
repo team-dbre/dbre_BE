@@ -1,0 +1,74 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>포트원 번호 인증 테스트</title>
+    {% csrf_token %}
+    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+    <script>
+        const STORE_ID = "{{ STORE_ID }}";
+        const CHANNEL_KEY = "{{ CHANNEL_KEY }}";
+
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    </script>
+</head>
+<body>
+    <button onclick="requestIdentityVerification()">본인 인증</button>
+
+    {% block scripts %}
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        async function requestIdentityVerification() {
+            try {
+                const response = await PortOne.requestIdentityVerification({
+                    storeId: STORE_ID,
+                    identityVerificationId: `identity-verification-${crypto.randomUUID()}`,
+                    channelKey: CHANNEL_KEY
+                });
+
+                if (response.code !== undefined) {
+                    alert(response.message);
+                    return;
+                }
+
+                // 서버로 인증 결과 전송
+                const verificationResult = await fetch("/identity-verification/", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRFToken": csrfToken
+                    },
+                    body: JSON.stringify({
+                        identityVerificationId: response.identityVerificationId
+                    })
+                });
+
+                const result = await verificationResult.json();
+                if (result.success) {
+                    alert("본인 인증 성공");
+                } else {
+                    alert("본인 인증 실패");
+                }
+            } catch (error) {
+                console.error("인증 중 오류 발생:", error);
+            }
+        }
+    </script>
+    {% endblock %}
+</body>
+</html>

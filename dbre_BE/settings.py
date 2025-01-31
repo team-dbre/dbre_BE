@@ -34,11 +34,23 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 IMP_API_KEY = os.getenv("IMP_API_KEY")
 IMP_API_SECRET = os.getenv("IMP_API_SECRET")
 IMP_MERCHANT_ID = os.getenv("IMP_MERCHANT_ID")
+IMP_STORE_ID = os.getenv("STORE_ID")
+IMP_API_URL = "https://api.portone.io/"
+IMP_CHANNEL_KEY = "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949"
+
 # SECURITY WARNING: don't run with debug turned on in production!
 
 DEBUG = os.getenv("DEBUG")
 
 ALLOWED_HOSTS = ["*"]
+
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SECURE = False
 
 
 # Application definition
@@ -52,8 +64,11 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "drf_spectacular",
+    "corsheaders",
     "payment",
     "term",
+    "subscription",
+    "user",
 ]
 
 
@@ -69,6 +84,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "dbre_BE.urls"
@@ -164,3 +180,9 @@ STATIC_URL = "staticfiles/"
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_USER_MODEL = "user.CustomUser"
+# 이메일 로그인을 위한 인증 백엔드 설정
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+]
