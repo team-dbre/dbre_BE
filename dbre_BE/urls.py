@@ -25,6 +25,7 @@ from drf_spectacular.views import (
 
 from payment.views import get_token_view, payment_page, verify_payment
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
+from user.views import user_verify_view, verify_phone
 
 
 urlpatterns = [
@@ -50,4 +51,10 @@ urlpatterns = [
     path(
         "term/<int:id>/", TermsDetailAPI.as_view(), name="term_detail"
     ),  # 특정 ID 데이터 조회
+    path(
+        "", user_verify_view, name="user_verify"
+    ),
+    path(
+        "identity-verification/", verify_phone, name="verify_phone"
+    )
 ]
