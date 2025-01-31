@@ -1,21 +1,33 @@
 from rest_framework import serializers
-from .models import CustomUser, Agreements
+
+from .models import Agreements, CustomUser
+
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     terms_agreement = serializers.BooleanField(write_only=True)
     privacy_agreement = serializers.BooleanField(write_only=True)
-    marketing_agreement = serializers.BooleanField(write_only=True, required=False, default=False)
+    marketing_agreement = serializers.BooleanField(
+        write_only=True, required=False, default=False
+    )
 
     class Meta:
         model = CustomUser
-        fields = ('email', 'password', 'name', 'phone',
-                 'terms_agreement', 'privacy_agreement', 'marketing_agreement')
+        fields = (
+            "email",
+            "password",
+            "name",
+            "phone",
+            "terms_agreement",
+            "privacy_agreement",
+            "marketing_agreement",
+        )
 
-    def validate(self, data):
-        if not data.get('terms_agreement') or not data.get('privacy_agreement'):
+    def validate(self, data: dict) -> dict:
+        if not data.get("terms_agreement") or not data.get("privacy_agreement"):
             raise serializers.ValidationError("필수 약관에 동의해야 합니다.")
         return data
+
 
 class EmailCheckSerializer(serializers.Serializer):
     email = serializers.EmailField()
