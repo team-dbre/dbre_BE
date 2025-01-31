@@ -1,4 +1,4 @@
-from typing import AnyStr, Any
+from typing import Any, AnyStr
 
 from django.http.request import HttpRequest
 from django.utils import timezone
@@ -24,7 +24,9 @@ from user.serializers import EmailCheckSerializer, UserRegistrationSerializer
 class UserRegistrationView(CreateAPIView):
     serializer_class = UserRegistrationSerializer
 
-    def create(self, request: UserRegistrationSerializer, *args: Any, **kwargs: Any) -> Response:
+    def create(
+        self, request: UserRegistrationSerializer, *args: Any, **kwargs: Any
+    ) -> Response:
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
