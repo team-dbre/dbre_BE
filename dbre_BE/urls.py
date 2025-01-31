@@ -28,7 +28,7 @@ from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 
 
 urlpatterns = [
-    # path("admin/", admin.site.urls),
+    path("admin/", admin.site.urls),
     path(
         "api/schema/", SpectacularAPIView.as_view(), name="schema"
     ),  # JSON 스키마 제공
