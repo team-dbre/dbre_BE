@@ -1,42 +1,44 @@
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.db import models
 import uuid
+from typing import Optional, Any
+
+from django.contrib.auth.models import (
+    AbstractBaseUser,
+    BaseUserManager,
+    PermissionsMixin,
+)
+from django.db import models
 
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
+    def create_user(self, email: str, password: Optional[str] = None, **extra_fields: Any) -> "CustomUser":
         if not email:
-            raise ValueError('이메일은 필수입니다')
+            raise ValueError("이메일은 필수입니다")
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        user.set_password(password)
+        user.set_password(password)     # type: ignore
         user.save(using=self._db)
-        return user
+        return user     # type: ignore
 
-    def create_superuser(self, email, password=None, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
+    def create_superuser(self, email: str, password: Optional[str] = None, **extra_fields: Any) -> "CustomUser":
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=50)
     phone = models.CharField(max_length=20)
     sub_status = models.CharField(
         max_length=20,
         choices=[
-            ('active', 'Active'),
-            ('cancelled', 'Cancelled'),
-            ('paused', 'Paused'),
-            ('none', 'None')
+            ("active", "Active"),
+            ("cancelled", "Cancelled"),
+            ("paused", "Paused"),
+            ("none", "None"),
         ],
-        default='none'
+        default="none",
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -46,11 +48,11 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
     objects = CustomUserManager()
 
-    USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['name']
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["name"]
 
     class Meta:
-        db_table = 'user_users'
+        db_table = "user_users"
 
 
 class Agreements(models.Model):
@@ -61,4 +63,4 @@ class Agreements(models.Model):
     marketing = models.BooleanField()
 
     class Meta:
-        db_table = 'user_agreements'
+        db_table = "user_agreements"

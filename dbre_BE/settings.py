@@ -166,8 +166,8 @@ STATIC_URL = "staticfiles/"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-AUTH_USER_MODEL = 'user.CustomUser'
+AUTH_USER_MODEL = "user.CustomUser"
 # 이메일 로그인을 위한 인증 백엔드 설정
 AUTHENTICATION_BACKENDS = [
-    'django.contrib.auth.backends.ModelBackend',
+    "django.contrib.auth.backends.ModelBackend",
 ]
