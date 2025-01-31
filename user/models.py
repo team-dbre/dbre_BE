@@ -1,5 +1,6 @@
 import uuid
-from typing import Optional, Any
+
+from typing import Any, Optional
 
 from django.contrib.auth.models import (
     AbstractBaseUser,
@@ -10,16 +11,20 @@ from django.db import models
 
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, email: str, password: Optional[str] = None, **extra_fields: Any) -> "CustomUser":
+    def create_user(
+        self, email: str, password: Optional[str] = None, **extra_fields: Any
+    ) -> "CustomUser":
         if not email:
             raise ValueError("이메일은 필수입니다")
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
-        user.set_password(password)     # type: ignore
+        user.set_password(password)  # type: ignore
         user.save(using=self._db)
-        return user     # type: ignore
+        return user  # type: ignore
 
-    def create_superuser(self, email: str, password: Optional[str] = None, **extra_fields: Any) -> "CustomUser":
+    def create_superuser(
+        self, email: str, password: Optional[str] = None, **extra_fields: Any
+    ) -> "CustomUser":
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         return self.create_user(email, password, **extra_fields)
