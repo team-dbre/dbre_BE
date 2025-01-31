@@ -1,22 +1,5 @@
-"""
-URL configuration for dbre_BE1 project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.1/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
-
 from django.contrib import admin
-from django.urls import path
+from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
     SpectacularRedocView,
@@ -28,32 +11,37 @@ from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import EmailCheckView, UserRegistrationView
 
 
+# Term 관련 URL 패턴
+term_patterns = [
+    path("", CreateTermAPI.as_view(), name="create_term"),
+    path("latest/", LatestTermsAPI.as_view(), name="latest_term"),
+    path("<int:id>/", TermsDetailAPI.as_view(), name="term_detail"),
+]
+
+# Payment 관련 URL 패턴
+payment_patterns = [
+    path("get-token/", get_token_view, name="get_token"),
+    path("verify/", verify_payment, name="verify_payment"),
+    path("page/", payment_page, name="payment_page"),
+]
+
+# User 관련 URL 패턴
+user_patterns = [
+    path("signup/", UserRegistrationView.as_view(), name="signup"),
+    path("check-email/", EmailCheckView.as_view(), name="check-email"),
+]
+
+# 메인 URL 패턴
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path(
-        "api/schema/", SpectacularAPIView.as_view(), name="schema"
-    ),  # JSON 스키마 제공
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
         "api/docs/",
         SpectacularSwaggerView.as_view(url_name="schema"),
         name="swagger-ui",
-    ),  # Swagger UI
-    path(
-        "api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"
-    ),  # Redoc UI
-    path("get-token/", get_token_view, name="get_token"),
-    path("verify-payment/", verify_payment, name="verify_payment"),
-    path("payment/", payment_page, name="payment_page"),
-    path("term/", CreateTermAPI.as_view(), name="create_term"),
-    path(
-        "term/latest/", LatestTermsAPI.as_view(), name="latest_term"
-    ),  # 가장 최근 데이터 조회
-    path(
-        "term/<int:id>/", TermsDetailAPI.as_view(), name="term_detail"
-    ),  # 특정 ID 데이터 조회
-    # path('request-payment/', request_payment, name='request_payment'),
-    # path('verify-payment/', verify_payment, name='verify_payment'),
-    # path('payment-test/', payment_test_view, name='payment_test'),
-    path("signup/", UserRegistrationView.as_view(), name="signup"),
-    path("check-email/", EmailCheckView.as_view(), name="check-email"),
+    ),
+    path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
+    path("api/term/", include((term_patterns, "term"))),
+    path("api/payment/", include((payment_patterns, "payment"))),
+    path("api/user/", include((user_patterns, "user"))),
 ]
