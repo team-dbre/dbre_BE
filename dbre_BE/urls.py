@@ -51,10 +51,10 @@ urlpatterns = [
     path(
         "term/<int:id>/", TermsDetailAPI.as_view(), name="term_detail"
     ),  # 특정 ID 데이터 조회
-    path(
-        "", user_verify_view, name="user_verify"
-    ),
-    path(
-        "identity-verification/", verify_phone, name="verify_phone"
-    )
+    # path(
+    #     "", user_verify_view, name="user_verify"
+    # ),
+    # path(
+    #     "identity-verification/", verify_phone, name="verify_phone"
+    # )
 ]
