@@ -25,7 +25,7 @@ from drf_spectacular.views import (
 
 from payment.views import get_token_view, payment_page, verify_payment
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
-from user.views import UserRegistrationView
+from user.views import UserRegistrationView, EmailCheckView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -54,4 +54,5 @@ urlpatterns = [
     # path('verify-payment/', verify_payment, name='verify_payment'),
     # path('payment-test/', payment_test_view, name='payment_test'),
     path('signup/', UserRegistrationView.as_view(), name='signup'),
+    path('check-email/', EmailCheckView.as_view(), name='check-email'),
 ]

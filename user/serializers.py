@@ -16,3 +16,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if not data.get('terms_agreement') or not data.get('privacy_agreement'):
             raise serializers.ValidationError("필수 약관에 동의해야 합니다.")
         return data
+
+class EmailCheckSerializer(serializers.Serializer):
+    email = serializers.EmailField()

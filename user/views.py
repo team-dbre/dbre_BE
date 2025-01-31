@@ -1,5 +1,5 @@
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from rest_framework.generics import CreateAPIView
+from rest_framework.generics import CreateAPIView, GenericAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from term.models import Terms
 from user.models import CustomUser, Agreements
-from user.serializers import UserRegistrationSerializer
+from user.serializers import UserRegistrationSerializer, EmailCheckSerializer
 
 
 @extend_schema_view(
@@ -48,3 +48,41 @@ class UserRegistrationView(CreateAPIView):
             'email': user.email,
             'name': user.name
         }, status=status.HTTP_201_CREATED)
+
+
+@extend_schema_view(
+    post=extend_schema(
+        summary="Check Email Availability",
+        description="Check if the provided email is already registered.",
+        request=EmailCheckSerializer,
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "available": {"type": "boolean"},
+                    "message": {"type": "string"}
+                }
+            }
+        }
+    )
+)
+class EmailCheckView(GenericAPIView):
+    serializer_class = EmailCheckSerializer
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data['email']
+        exists = CustomUser.objects.filter(email=email).exists()
+
+        if exists:
+            return Response({
+                'available': False,
+                'message': '이미 사용 중인 이메일입니다.'
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            'available': True,
+            'message': '사용 가능한 이메일입니다.'
+        }, status=status.HTTP_200_OK)
