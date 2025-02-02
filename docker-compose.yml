@@ -31,7 +31,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=${POSTGRES_HOST}
       - DJANGO_SETTINGS_MODULE=dbre_BE.settings
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/dbre_BE
 
     depends_on:
       db:
