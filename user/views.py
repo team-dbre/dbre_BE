@@ -97,12 +97,12 @@ class EmailCheckView(GenericAPIView):
 
         if exists:
             return Response(
-                {"available": False, "message": "이미 사용 중인 이메일입니다."},
+                {"available": False, "message": "이미 가입된 이메일입니다."},
                 status=status.HTTP_200_OK,
             )
 
         return Response(
-            {"available": True, "message": "사용 가능한 이메일입니다."},
+            {"available": True, "message": "가입 가능한 이메일입니다."},
             status=status.HTTP_200_OK,
         )
 
