@@ -6,7 +6,6 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-from payment.views import get_token_view, payment_page, verify_payment
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import EmailCheckView, LoginView, LogoutView, UserRegistrationView
 
@@ -20,9 +19,7 @@ term_patterns = [
 
 # Payment 관련 URL 패턴
 payment_patterns = [
-    path("get-token/", get_token_view, name="get_token"),
-    path("verify/", verify_payment, name="verify_payment"),
-    path("page/", payment_page, name="payment_page"),
+    path("", include("payment.urls")),
 ]
 
 # User 관련 URL 패턴
