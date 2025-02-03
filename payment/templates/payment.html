@@ -1,101 +1,314 @@
+<!--<!DOCTYPE html>-->
+<!--<html lang="ko">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <title>포트원 결제 테스트</title>-->
+<!--    <script src="https://cdn.iamport.kr/v1/iamport.js"></script>-->
+<!--</head>-->
+<!--<body>-->
+<!--    <h1>포트원 결제 테스트</h1>-->
+<!--    <button onclick="requestPayment()">결제하기</button>-->
+
+<!--    <script>-->
+<!--        function requestPayment() {-->
+<!--            var IMP = window.IMP;-->
+<!--            IMP.init("imp45748364");  // 테스트용 가맹점 식별코드-->
+
+<!--            IMP.request_pay({-->
+<!--                pg: "kcp",-->
+<!--                pay_method: "card",-->
+<!--                merchant_uid: "order_" + new Date().getTime(),-->
+<!--                name: "테스트 상품",-->
+<!--                amount: 100,-->
+<!--                buyer_email: "test@example.com",-->
+<!--                buyer_name: "홍길동",-->
+<!--                buyer_tel: "010-1234-5678",-->
+<!--                buyer_addr: "서울특별시 강남구",-->
+<!--                buyer_postcode: "12345"-->
+<!--            }, function (rsp) {-->
+<!--                if (rsp.success) {-->
+<!--                    alert("결제 성공! 결제번호: " + rsp.imp_uid);-->
+
+<!--                    fetch('/verify-payment/', {-->
+<!--                        method: 'POST',-->
+<!--                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },-->
+<!--                        body: `imp_uid=${rsp.imp_uid}`-->
+<!--                    })-->
+<!--                    .then(response => response.json())-->
+<!--                    .then(data => {-->
+<!--                        if (data.success) {-->
+<!--                            alert("결제 검증 성공");-->
+<!--                        } else {-->
+<!--                            alert("결제 검증 실패");-->
+<!--                        }-->
+<!--                    });-->
+
+<!--                } else {-->
+<!--                    alert("결제 실패: " + rsp.error_msg);-->
+<!--                }-->
+<!--            });-->
+<!--        }-->
+<!--    </script>-->
+<!--</body>-->
+<!--</html>-->
+
+<!--<!doctype html>-->
+<!--<html lang="ko">-->
+<!--  <head>-->
+<!--    <meta charset="UTF-8" />-->
+<!--    <link rel="icon" type="image/png" href="/favicon.png" />-->
+<!--    <link rel="stylesheet" type="text/css" href="/index.css" />-->
+<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0" />-->
+<!--    <title>포트원 결제연동 샘플</title>-->
+<!--    <script src="https://cdn.portone.io/v2/browser-sdk.js" async defer></script>-->
+<!--  </head>-->
+<!--  <body>-->
+<!--    <div id="root">-->
+<!--      <dialog id="loadingDialog" open>-->
+<!--        <article aria-busy="true">결제 정보를 불러오는 중입니다.</article>-->
+<!--      </dialog>-->
+<!--      <main id="checkoutDialog" style="display: none">-->
+<!--        <form id="checkoutForm">-->
+<!--          <article>-->
+<!--            <div class="item">-->
+<!--              <div class="item-image">-->
+<!--                <img id="itemImage" />-->
+<!--              </div>-->
+<!--              <div class="item-text">-->
+<!--                <h5 id="itemName"></h5>-->
+<!--                <p class="price-value"></p>-->
+<!--              </div>-->
+<!--            </div>-->
+<!--            <div class="price">-->
+<!--              <label>총 구입 가격</label>-->
+<!--              <span class="price-value"></span>-->
+<!--            </div>-->
+<!--          </article>-->
+<!--          <button id="checkoutButton" type="submit">결제</button>-->
+<!--        </form>-->
+<!--      </main>-->
+<!--      <dialog id="failDialog">-->
+<!--        <header>-->
+<!--          <h1>결제 실패</h1>-->
+<!--        </header>-->
+<!--        <p id="failMessage"></p>-->
+<!--        <button type="button" class="closeDialog">닫기</button>-->
+<!--      </dialog>-->
+<!--      <dialog id="successDialog">-->
+<!--        <header>-->
+<!--          <h1>결제 성공</h1>-->
+<!--        </header>-->
+<!--        <p>결제에 성공했습니다.</p>-->
+<!--        <button type="button" class="closeDialog">닫기</button>-->
+<!--      </dialog>-->
+<!--    </div>-->
+<!--    <script>-->
+<!--      const checkout = new Checkout();-->
+<!--      checkout.load();-->
+
+<!--      function Checkout() {-->
+<!--        let item = null;-->
+
+<!--        this.load = async () => {-->
+<!--          const waitPortOne = new Promise((resolve) => {-->
+<!--            const polling = setInterval(() => {-->
+<!--              if (window.PortOne != null) {-->
+<!--                clearInterval(polling);-->
+<!--                resolve();-->
+<!--              }-->
+<!--            }, 50);-->
+<!--          });-->
+
+<!--          const waitItem = await fetch("/api/item").then(-->
+<!--            async (response) => (item = await response.json())-->
+<!--          );-->
+
+<!--          await Promise.all([waitPortOne, waitItem]);-->
+
+<!--          window.loadingDialog.open = false;-->
+<!--          window.checkoutDialog.open = true;-->
+<!--          await this.showCheckout();-->
+<!--        };-->
+
+<!--        this.showCheckout = async () => {-->
+<!--          window.itemName.replaceChildren(item.name);-->
+<!--          window.itemImage.src = `/static/images/${item.id}.png`;-->
+
+<!--          for (const priceElement of document.querySelectorAll(".price-value")) {-->
+<!--            priceElement.replaceChildren(`${item.price.toLocaleString()}원`);-->
+<!--          }-->
+
+<!--          window.checkoutDialog.onsubmit = async (e) => {-->
+<!--            e.preventDefault();-->
+<!--            this.setWaitingPayment(true);-->
+
+<!--            function randomId() {-->
+<!--              return [...crypto.getRandomValues(new Uint32Array(2))]-->
+<!--                .map((word) => word.toString(16).padStart(8, "0"))-->
+<!--                .join("");-->
+<!--            }-->
+
+<!--            const paymentId = randomId();-->
+
+<!--            const payment = await PortOne.requestPayment({-->
+<!--              storeId: "store-c25c9523-5081-4aae-a882-ce7e52479c59",-->
+<!--              channelKey: "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949",-->
+<!--              paymentId,-->
+<!--              orderName: item.name,-->
+<!--              totalAmount: item.price,-->
+<!--              currency: "KRW",-->
+<!--              payMethod: "CARD",-->
+<!--              customData: {-->
+<!--                sub_id: item.id, // Django 모델의 Subs id-->
+<!--              },-->
+<!--            });-->
+
+<!--            if (payment.code !== undefined) {-->
+<!--              this.setWaitingPayment(false);-->
+<!--              console.log(payment);-->
+<!--              this.openFailDialog(payment.message);-->
+<!--              return;-->
+<!--            }-->
+
+<!--            const completeResponse = await fetch("/api/payment/complete/", {-->
+<!--              method: "POST",-->
+<!--              headers: {-->
+<!--                "Content-Type": "application/json",-->
+<!--              },-->
+<!--              body: JSON.stringify({-->
+<!--                paymentId: payment.paymentId,-->
+<!--              }),-->
+<!--            });-->
+
+<!--            this.setWaitingPayment(false);-->
+
+<!--            if (completeResponse.ok) {-->
+<!--              const paymentComplete = await completeResponse.json();-->
+<!--              if (paymentComplete.status === "PAID") {-->
+<!--                this.openSuccessDialog();-->
+<!--              } else {-->
+<!--                this.openFailDialog("결제는 완료되었으나 상태 확인이 필요합니다.");-->
+<!--              }-->
+<!--            } else {-->
+<!--              this.openFailDialog(await completeResponse.text());-->
+<!--            }-->
+<!--          };-->
+
+<!--          for (const dialogButton of document.getElementsByClassName("closeDialog")) {-->
+<!--            dialogButton.onclick = () => {-->
+<!--              dialogButton.parentElement.parentElement.open = false;-->
+<!--            };-->
+<!--          }-->
+
+<!--          window.checkoutDialog.style = "";-->
+<!--        };-->
+
+<!--        this.setWaitingPayment = (isWaiting) => {-->
+<!--          window.checkoutButton.setAttribute("aria-busy", isWaiting.toString());-->
+<!--          window.checkoutButton.disabled = isWaiting;-->
+<!--        };-->
+
+<!--        this.openFailDialog = (message) => {-->
+<!--          document.getElementById("failMessage").textContent = message;-->
+<!--          window.failDialog.open = true;-->
+<!--        };-->
+
+<!--        this.openSuccessDialog = () => {-->
+<!--          window.successDialog.open = true;-->
+<!--        };-->
+<!--      }-->
+<!--    </script>-->
+<!--  </body>-->
+<!--</html>-->
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <title>포트원 결제 테스트</title>
-    <script src="https://cdn.iamport.kr/v1/iamport.js"></script>
+    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
 </head>
 <body>
     <h1>포트원 결제 테스트</h1>
     <button onclick="requestPayment()">결제하기</button>
 
     <script>
-        function requestPayment() {
-            var IMP = window.IMP;
-            IMP.init("imp45748364");  // 테스트용 가맹점 식별코드
+function generatePaymentId() {
+    return `ORDER_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+}
 
-            IMP.request_pay({
-                pg: "kcp",
-                pay_method: "card",
-                merchant_uid: "order_" + new Date().getTime(),
-                name: "테스트 상품",
-                amount: 100,
-                buyer_email: "test@example.com",
-                buyer_name: "홍길동",
-                buyer_tel: "010-1234-5678",
-                buyer_addr: "서울특별시 강남구",
-                buyer_postcode: "12345"
-            }, function (rsp) {
-                if (rsp.success) {
-                    alert("결제 성공! 결제번호: " + rsp.imp_uid);
 
-                    fetch('/verify-payment/', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: `imp_uid=${rsp.imp_uid}`
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            alert("결제 검증 성공");
-                        } else {
-                            alert("결제 검증 실패");
-                        }
-                    });
+async function requestPayment() {
+    const userId = "550e8400-e29b-41d4-a716-446655440000";  // ✅ 예제 UUID
+    const subId = 1;  // ✅ 구독 ID
+    const paymentId = generatePaymentId();  // ✅ 고유한 결제 ID 생성
 
-                } else {
-                    alert("결제 실패: " + rsp.error_msg);
-                }
-            });
+
+    try {
+        // ✅ Django 서버에서 상품 정보 가져오기
+        const itemResponse = await fetch('/api/item/');
+        const item = await itemResponse.json();
+
+        if (!item || item.error) {
+            alert("상품 정보를 가져올 수 없습니다.");
+            return;
         }
+
+        console.log("🟢 상품 정보:", item);
+
+        // ✅ Django 서버에서 결제 요청 생성
+        const response = await fetch('/api/payment/request/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, sub_id: subId })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            alert(`결제 요청 실패: ${data.error}`);
+            return;
+        }
+
+        // ✅ 포트원 V2 결제 요청
+        const payment = await PortOne.requestPayment({
+            storeId: "store-c25c9523-5081-4aae-a882-ce7e52479c59",
+            channelKey: "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949",
+            paymentId: paymentId,
+            orderName: 'Basic Plan',  // ✅ 상품 정보 사용
+            totalAmount: item.price,  // ✅ 상품 가격 사용
+            currency: "KRW",
+            payMethod: "CARD",
+            customData: {
+                sub_id: subId,  // ✅ 구독 ID 전달
+            },
+        });
+
+        console.log("🟢 결제 응답:", payment);
+
+        if (payment.code !== undefined) {
+            alert("결제 실패: " + payment.message);
+            return;
+        }
+
+        // ✅ Django 서버에 결제 완료 처리 요청
+        await fetch('/api/payment/complete/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentId: payment.paymentId })
+        }).then(res => res.json()).then(data => {
+            if (data.status === "PAID") {
+                alert("✅ 결제 성공!");
+            } else {
+                alert("❌ 결제 검증 실패");
+            }
+        });
+
+    } catch (error) {
+        console.error("❌ 결제 요청 오류:", error);
+        alert("결제 요청 중 오류가 발생했습니다.");
+    }
+}
     </script>
 </body>
 </html>
-
-
-<!--<!DOCTYPE html>-->
-<!--<html lang="ko">-->
-<!--<head>-->
-<!--    <meta charset="UTF-8">-->
-<!--    <meta name="viewport" content="width=device-width, initial-scale=1.0">-->
-<!--    <title>포트원 테스트 결제</title>-->
-<!--    <script src="https://cdn.iamport.kr/v2/iamport.js"></script>-->
-<!--</head>-->
-<!--<body>-->
-<!--    <button id="payButton">결제하기</button>-->
-
-<!--    <script type="module">-->
-<!--        import * as PortOne from '@portone/browser-sdk/v2';-->
-
-<!--        document.getElementById('payButton').addEventListener('click', async () => {-->
-<!--            try {-->
-<!--                const response = await PortOne.requestPayment({-->
-<!--                    storeId: '',  // 관리자 콘솔에서 확인한 Store ID-->
-<!--                    channelKey: '', // 관리자 콘솔에서 확인한 Channel Key-->
-<!--                    paymentId: `TEST_ORDER_${Date.now()}`,  // 고유한 주문번호-->
-<!--                    orderName: '테스트 상품',-->
-<!--                    totalAmount: 100,  // 결제 금액 (단위: KRW)-->
-<!--                    currency: 'CURRENCY_KRW',-->
-<!--                    payMethod: 'CARD',  // 테스트 결제 수단 (CARD, BANK, VBANK 등)-->
-<!--                    customer: {-->
-<!--                        email: 'test@example.com',-->
-<!--                        name: '홍길동',-->
-<!--                        phone: '01012345678'-->
-<!--                    }-->
-<!--                });-->
-
-<!--                if (response?.code) {-->
-<!--                    console.error('결제 실패:', response.message);-->
-<!--                    alert(`결제 실패: ${response.message}`);-->
-<!--                } else {-->
-<!--                    console.log('결제 성공:', response);-->
-<!--                    alert(`결제 성공! 결제 ID: ${response.paymentId}`);-->
-<!--                }-->
-<!--            } catch (error) {-->
-<!--                console.error('결제 에러:', error);-->
-<!--                alert('결제 요청 중 오류가 발생했습니다.');-->
-<!--            }-->
-<!--        });-->
-<!--    </script>-->
-<!--</body>-->
-<!--</html>-->
