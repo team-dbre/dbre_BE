@@ -1,6 +1,10 @@
 import uuid
 
 from django.db import models
+from gunicorn.config import User
+
+from plan.models import Plans
+from user.models import CustomUser
 
 
 class Subs(models.Model):
@@ -14,10 +18,12 @@ class Subs(models.Model):
     ]
 
     id = models.AutoField(primary_key=True)
-    start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
-    next_bill_date = models.DateTimeField()
-    remaining_bill_date = models.DateTimeField()
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    plan = models.ForeignKey(Plans, on_delete=models.CASCADE)
+    start_date = models.DateTimeField(auto_now_add=True)
+    end_date = models.DateTimeField(null=True, blank=True)
+    next_bill_date = models.DateTimeField(null=True, blank=True)
+    remaining_bill_date = models.DurationField(null=True, blank=True)
     auto_renew = models.BooleanField(default=False, null=True)
     cancelled_reason = models.CharField(
         max_length=50, choices=cancelled_reason_choices, null=False
@@ -27,4 +33,28 @@ class Subs(models.Model):
     )
 
     def __str__(self) -> str:
-        return f"구독 기간: {self.start_date.strftime('%Y-%m-%d')} - {self.end_date.strftime('%Y-%m-%d')}"
+        start_str = self.start_date.strftime("%Y-%m-%d") if self.start_date else "N/A"
+        end_str = self.end_date.strftime("%Y-%m-%d") if self.end_date else "N/A"
+        return f"구독 기간: {start_str} - {end_str}"
+
+    def get_plan_price(self) -> float:
+        return self.plan.price
+
+
+class SubHistories(models.Model):
+    STATUS_CHOICES = [
+        ("renewal", "갱신"),
+        ("cancel", "취소"),
+        ("pause", "정지"),
+        ("restart", "재개"),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    sub = models.ForeignKey(Subs, on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    plan = models.ForeignKey(Plans, on_delete=models.CASCADE)
+    change_date = models.DateTimeField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+
+    def __str__(self) -> str:
+        return f"SubscriptionHistory {self.id} - {self.user.email}"
