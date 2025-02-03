@@ -35,6 +35,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=50)
     phone = models.CharField(max_length=20)
+    provider = models.CharField(max_length=20, null=True, blank=True, default=None)
+    img_url = models.URLField(null=True, blank=True, default=None)
     sub_status = models.CharField(
         max_length=20,
         choices=[
@@ -61,7 +63,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
 
 
 class Agreements(models.Model):
-    id = models.BigIntegerField(primary_key=True)
+    id = models.AutoField(primary_key=True)  # BigIntegerField에서 AutoField로 변경
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     terms_url = models.CharField(max_length=255)
     agreed_at = models.DateTimeField()
