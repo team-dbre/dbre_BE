@@ -8,7 +8,7 @@ from drf_spectacular.views import (
 
 from payment.views import get_token_view, payment_page, verify_payment
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
-from user.views import EmailCheckView, UserRegistrationView
+from user.views import EmailCheckView, LoginView, LogoutView, UserRegistrationView
 
 
 # Term 관련 URL 패턴
@@ -29,6 +29,8 @@ payment_patterns = [
 user_patterns = [
     path("signup/", UserRegistrationView.as_view(), name="signup"),
     path("check-email/", EmailCheckView.as_view(), name="check-email"),
+    path("login/", LoginView.as_view(), name="login"),
+    path("logout/", LogoutView.as_view(), name="logout"),
 ]
 
 # 메인 URL 패턴

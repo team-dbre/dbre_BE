@@ -1,16 +1,27 @@
-from typing import Any, AnyStr
+from typing import Any
 
 from django.http.request import HttpRequest
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, GenericAPIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.token_blacklist.models import (
+    BlacklistedToken,
+    OutstandingToken,
+)
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 from term.models import Terms
 from user.models import Agreements, CustomUser
-from user.serializers import EmailCheckSerializer, UserRegistrationSerializer
+from user.serializers import (
+    EmailCheckSerializer,
+    LoginSerializer,
+    LogoutSerializer,
+    UserRegistrationSerializer,
+)
 
 
 @extend_schema_view(
@@ -94,3 +105,70 @@ class EmailCheckView(GenericAPIView):
             {"available": True, "message": "사용 가능한 이메일입니다."},
             status=status.HTTP_200_OK,
         )
+
+
+class LoginView(TokenObtainPairView):
+    serializer_class = LoginSerializer  # type: ignore
+
+    @extend_schema(
+        summary="User Login",
+        description="Login with email and password to get access and refresh tokens",
+        request=LoginSerializer,
+        examples=[
+            OpenApiExample(
+                "Login Example",
+                value={"email": "user@example.com", "password": "string"},
+                request_only=True,
+            )
+        ],
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "message": {"type": "string"},
+                    "access_token": {"type": "string"},
+                    "refresh_token": {"type": "string"},
+                },
+            }
+        },
+    )
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
+        return super().post(request, *args, **kwargs)
+
+
+class LogoutView(GenericAPIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = LogoutSerializer
+
+    def post(self, request: HttpRequest) -> Response:
+        try:
+            serializer = self.get_serializer(data=request.data)  # type: ignore
+            serializer.is_valid(raise_exception=True)
+
+            refresh_token = serializer.validated_data["refresh_token"]
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+
+            response = Response(
+                {"message": "로그아웃이 완료되었습니다."}, status=status.HTTP_200_OK
+            )
+
+            # 쿠키 삭제를 set_cookie로 구현
+            response.set_cookie(
+                "refresh_token",
+                value="",
+                max_age=0,
+                expires="Thu, 01 Jan 1970 00:00:00 GMT",
+                path="/",
+                secure=True,
+                httponly=True,
+                samesite="None",
+            )
+
+            return response
+
+        except Exception as e:
+            return Response(
+                {"message": "로그아웃에 실패했습니다.", "detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
