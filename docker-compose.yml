@@ -18,7 +18,7 @@ services:
     build: .
     env_file: .env
     ports:
-      - "8000:8000"
+      - "8500:8000"
     volumes:
       - ./dbre_BE:/app/dbre_BE
     working_dir: /app
