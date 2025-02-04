@@ -72,6 +72,7 @@ INSTALLED_APPS = [
     "term",
     "subscription",
     "user",
+    "plan",
 ]
 
 
