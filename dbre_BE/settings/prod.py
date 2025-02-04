@@ -7,6 +7,7 @@ DEBUG = False
 # CSRF_COOKIE_HTTPONLY = True
 # CSRF_COOKIE_SECURE = True
 
+# -------------------------- 개발환경
 ALLOWED_HOSTS = ["*"]
 
 CSRF_TRUSTED_ORIGINS = [
@@ -17,19 +18,7 @@ CSRF_TRUSTED_ORIGINS = [
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = False
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB"),
-        "USER": os.getenv("POSTGRES_USER"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
-        "HOST": os.getenv("DEPLOY_POSTGRES_HOST"),
-        "PORT": os.getenv("DEPLOY_POSTGRES_PORT"),
-    }
-}
+# -------------------------- 개발환경
 
-STATIC_URL = "staticfiles/"
-STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
-
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
+# SECURE_SSL_REDIRECT = True        # 배포 시
+# SESSION_COOKIE_SECURE = True

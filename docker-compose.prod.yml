@@ -1,20 +1,35 @@
 services:
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - /etc/letsencrypt:/etc/nginx/ssl
+      - ./staticfiles:/usr/share/nginx/html/staticfiles
+    depends_on:
+      - web
+    restart: always
+
   web:
     build: .
     env_file: .env
     ports:
-      - "8500:8000"
+      - "8000:8000"
     volumes:
       - ./dbre_BE:/app/dbre_BE
       - ./staticfiles:/app/staticfiles
     working_dir: /app
-    command: poetry run python manage.py runserver 0.0.0.0:8000
+    command: poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=${POSTGRES_HOST}
-      - DJANGO_SETTINGS_MODULE=dbre_BE.settings.local
+      - POSTGRES_HOST=db
+      - DJANGO_SETTINGS_MODULE=dbre_BE.settings.prod
       - PYTHONPATH=/app:/app/dbre_BE
     depends_on:
       db:
