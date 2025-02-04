@@ -1,5 +1,6 @@
 from .base import *
 
+
 DEBUG = False
 
 # ALLOWED_HOSTS = ["your-domain.com"]   # 배포 시
@@ -19,6 +20,17 @@ CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = False
 
 # -------------------------- 개발환경
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("DEPLOY_POSTGRES_HOST"),
+        "PORT": os.getenv("DEPLOY_POSTGRES_PORT"),
+    }
+}
 
 # SECURE_SSL_REDIRECT = True        # 배포 시
 # SESSION_COOKIE_SECURE = True

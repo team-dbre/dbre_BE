@@ -1,5 +1,6 @@
 from .base import *
 
+
 DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
@@ -13,5 +14,15 @@ CSRF_TRUSTED_ORIGINS = [
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SECURE = False
 
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("LOCAL_POSTGRES_HOST"),
+        "PORT": os.getenv("LOCAL_POSTGRES_PORT"),
+    }
+}
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
