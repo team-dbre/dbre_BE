@@ -29,7 +29,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=${POSTGRES_HOST}
+      - POSTGRES_HOST=${DEPLOY_POSTGRES_HOST}
       - DJANGO_SETTINGS_MODULE=dbre_BE.settings
       - PYTHONPATH=/app:/app/dbre_BE
 
@@ -61,7 +61,12 @@ services:
     ports:
       - "6666:6379"
     restart: always
-
+    networks:
+      - dbre_network
 
 volumes:
   postgres_data:
+
+networks:
+  dbre_network:
+    driver: bridge
