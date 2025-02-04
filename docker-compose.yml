@@ -1,25 +1,25 @@
 services:
-  web:
-    build: .
-    env_file: .env
-    ports:
-      - "8500:8000"
-    volumes:
-      - ./dbre_BE:/app/dbre_BE
-      - ./staticfiles:/app/staticfiles
-    working_dir: /app
-    command: poetry run python manage.py runserver 0.0.0.0:8000
-    environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_HOST=${POSTGRES_HOST}
-      - DJANGO_SETTINGS_MODULE=dbre_BE.settings.local
-      - PYTHONPATH=/app:/app/dbre_BE
-    depends_on:
-      db:
-        condition: service_healthy
-    restart: always
+#  web:
+#    build: .
+#    env_file: .env
+#    ports:
+#      - "8500:8000"
+#    volumes:
+#      - ./dbre_BE:/app/dbre_BE
+#      - ./staticfiles:/app/staticfiles
+#    working_dir: /app
+#    command: poetry run python manage.py runserver 0.0.0.0:8000
+#    environment:
+#      - POSTGRES_USER=${POSTGRES_USER}
+#      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+#      - POSTGRES_DB=${POSTGRES_DB}
+#      - POSTGRES_HOST=${POSTGRES_HOST}
+#      - DJANGO_SETTINGS_MODULE=dbre_BE.settings.local
+#      - PYTHONPATH=/app:/app/dbre_BE
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#    restart: always
 
   db:
     image: postgres:15-alpine
@@ -44,12 +44,12 @@ services:
     ports:
       - "6666:6379"
     restart: always
-    networks:
-      - dbre_network
+#    networks:
+#      - dbre_network
 
 volumes:
   postgres_data:
 
-networks:
-  dbre_network:
-    driver: bridge
+#networks:
+#  dbre_network:
+#    driver: bridge
