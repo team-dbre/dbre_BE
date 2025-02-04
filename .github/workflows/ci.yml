@@ -38,12 +38,13 @@ jobs:
       IMP_MERCHANT_ID: ${{ secrets.IMP_MERCHANT_ID }}
       POSTGRES_USER: ${{ secrets.POSTGRES_USER }}
       POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-      POSTGRES_HOST: ${{ secrets.POSTGRES_HOST }}
-      POSTGRES_PORT: 5555
+      LOCAL_POSTGRES_HOST: ${{ secrets.LOCAL_POSTGRES_HOST }}
+      LOCAL_POSTGRES_PORT: ${{ secrets.LOCAL_POSTGRES_PORT }}
       POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
       DEBUG: ${{ secrets.DEBUG }}
       REDIS_URL: redis://localhost:6666/1
       STATIC_ROOT: staticfiles
+      DJANGO_SETTINGS_MODULE: dbre_BE.settings.local
 
     steps:
     - name: Checkout code
