@@ -61,6 +61,6 @@ module = ["django", "django.db.models"]
 ignore_missing_imports = true
 
 [tool.django-stubs]
-django_settings_module = "dbre_BE.settings"
+django_settings_module = "dbre_BE.settings.local"
 ignore_missing_model_attributes = true  # 모델 속성 누락 무시
 strict_settings = true  # settings.py의 엄격한 타입 검사 활성화
