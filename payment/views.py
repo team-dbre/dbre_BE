@@ -307,7 +307,6 @@ def verify_payment(payment: portone.payment.PaidPayment, subscription: Subs) -> 
     return True
 
 
-
 @csrf_exempt
 @require_POST
 def cancel_payment(request: Request) -> HttpResponse:
