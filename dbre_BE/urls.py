@@ -7,8 +7,7 @@ from drf_spectacular.views import (
 )
 
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
-from user.views import EmailCheckView, LoginView, LogoutView, UserRegistrationView
-
+from user.views import EmailCheckView, LoginView, LogoutView, UserRegistrationView, GoogleLoginView, GoogleCallbackView
 
 # Term 관련 URL 패턴
 term_patterns = [
@@ -43,4 +42,6 @@ urlpatterns = [
     path("api/term/", include((term_patterns, "term"))),
     path("api/payment/", include((payment_patterns, "payment"))),
     path("api/user/", include((user_patterns, "user"))),
+    path('auth/google/login/', GoogleLoginView.as_view(), name='google_login'),
+    path('auth/google/callback/', GoogleCallbackView.as_view(), name='google_callback'),
 ]

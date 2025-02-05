@@ -1,16 +1,16 @@
 from typing import Any
+from urllib.parse import urlencode
 
+from django.conf import settings
 from django.http.request import HttpRequest
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
+from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view, OpenApiResponse
 from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.generics import CreateAPIView, GenericAPIView
+from rest_framework.renderers import JSONRenderer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.token_blacklist.models import (
-    BlacklistedToken,
-    OutstandingToken,
-)
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -20,8 +20,9 @@ from user.serializers import (
     EmailCheckSerializer,
     LoginSerializer,
     LogoutSerializer,
-    UserRegistrationSerializer,
+    UserRegistrationSerializer, GoogleCallbackSerializer, GoogleLoginSerializer,
 )
+from user.utils import get_google_access_token, get_google_user_info
 
 
 @extend_schema_view(
@@ -172,3 +173,99 @@ class LogoutView(GenericAPIView):
                 {"message": "로그아웃에 실패했습니다.", "detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class GoogleLoginView(GenericAPIView):
+    serializer_class = GoogleLoginSerializer
+    renderer_classes = [JSONRenderer]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=GoogleLoginSerializer,
+                description='구글 로그인 URL 반환'
+            )
+        }
+    )
+    def get(self, request):
+        params = {
+            'client_id': settings.GOOGLE_CLIENT_ID,
+            'redirect_uri': settings.GOOGLE_REDIRECT_URI,
+            'response_type': 'code',
+            'scope': 'email profile',
+            'access_type': 'offline',
+            'prompt': 'select_account',
+        }
+
+        auth_url = f'https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}'
+        return Response({'auth_url': auth_url})
+
+    @extend_schema(
+        request=GoogleLoginSerializer,
+        responses={
+            200: OpenApiResponse(
+                response=GoogleLoginSerializer,
+                description='구글 로그인 완료'
+            )
+        }
+    )
+    def post(self, request):
+        try:
+            code = request.data.get('code')
+            access_token = get_google_access_token(code)
+            user_info = get_google_user_info(access_token)
+
+            try:
+                user = CustomUser.objects.get(email=user_info['email'])
+            except CustomUser.DoesNotExist:
+                user = CustomUser.objects.create_user(
+                    email=user_info['email'],
+                    name=user_info.get('name', ''),
+                    provider='google',
+                    img_url=user_info.get('picture'),
+                )
+
+                latest_terms = Terms.objects.latest('created_at')
+                Agreements.objects.create(
+                    user=user,
+                    terms_url=f'/terms/{latest_terms.id}',
+                    agreed_at=timezone.now(),
+                    marketing=False
+                )
+
+            refresh = RefreshToken.for_user(user)
+            return Response({
+                'message': '구글 로그인이 완료되었습니다.',
+                'access_token': str(refresh.access_token),
+                'refresh_token': str(refresh)
+            }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({
+                'message': '구글 로그인에 실패했습니다.',
+                'detail': str(e)
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+
+class GoogleCallbackView(GenericAPIView):
+    serializer_class = GoogleCallbackSerializer
+    renderer_classes = [JSONRenderer]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=GoogleCallbackSerializer,
+                description='구글 콜백 처리'
+            )
+        }
+    )
+    def get(self, request):
+        code = request.GET.get('code')
+        if not code:
+            return Response({
+                'message': '인증 코드가 없습니다.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'code': code
+        }, status=status.HTTP_200_OK)
