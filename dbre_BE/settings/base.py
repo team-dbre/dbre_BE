@@ -141,3 +141,22 @@ SPECTACULAR_SETTINGS = {
 
 STATIC_URL = "staticfiles/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+
+CORS_ALLOW_ALL_ORIGINS = True  # ⚠️ 배포 시엔 특정 도메인만 허용해야 함
+
+# ✅ 특정 도메인만 허용 (보안 강화 - 운영 환경)
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:63342",  # ✅ 브라우저에서 실행한 로컬 HTML 파일
+    "http://127.0.0.1:8000",  # ✅ 로컬 Django 서버
+    "http://localhost:3000",  # ✅ React/Vue 같은 로컬 프론트엔드 서버
+]
+
+# ✅ 인증이 필요한 요청 (예: 쿠키 포함 요청) 허용
+CORS_ALLOW_CREDENTIALS = True
+
+# ✅ 특정 HTTP 메서드만 허용
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+
+# ✅ 특정 헤더만 허용
+CORS_ALLOW_HEADERS = ["content-type", "authorization"]
