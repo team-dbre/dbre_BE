@@ -1,4 +1,4 @@
-from typing import Optional, Dict, Any, cast
+from typing import Any, Dict, Optional, cast
 
 import requests
 
@@ -16,6 +16,7 @@ def get_google_access_token(code: str) -> Optional[str]:
     }
     response = requests.post(token_url, data=data)
     return cast(Optional[str], response.json().get("access_token"))
+
 
 def get_google_user_info(access_token: str) -> Dict[str, Any]:
     user_info_url = "https://www.googleapis.com/oauth2/v2/userinfo"

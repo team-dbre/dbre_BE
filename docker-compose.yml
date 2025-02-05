@@ -42,14 +42,18 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"  # 표준 Redis 포트 사용 권장
-    restart: always
-#    networks:
-#      - dbre_network
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dbre_network
+
+networks:
+  dbre_network:
+    driver: bridge
 
 volumes:
   postgres_data:
-
-#networks:
-#  dbre_network:
-#    driver: bridge

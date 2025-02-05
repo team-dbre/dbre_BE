@@ -86,17 +86,6 @@ TEMPLATES = [
 WSGI_APPLICATION = "dbre_BE.wsgi.application"
 
 
-# redis 캐시 설정
-CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        "LOCATION": f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', '6379')}/{os.getenv('REDIS_DB', '1')}",
-        "OPTIONS": {
-            "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        },
-    }
-}
-
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
 
@@ -143,14 +132,36 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "email",
 }
 
+# redis 캐시 설정
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://localhost:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            "RETRY_ON_TIMEOUT": True,
+        },
+        "KEY_PREFIX": "dbre",
+    }
+}
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "DBre_BE",
     "DESCRIPTION": "DBre project BackEnd part",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
-    "SWAGGER_UI_SETTINGS": {"defaultModelsExpandDepth": -1},
+    "SWAGGER_UI_SETTINGS": {"defaultModelsExpandDepth": 1},
     "EXAMPLES_INCLUDE_SCHEMA": True,
+    "TAGS": [
+        {"name": "user", "description": "User management operations"},
+        {"name": "payment", "description": "Payment related operations"},
+        {"name": "term", "description": "Term related operations"},
+    ],
+    "OPERATIONS_SORTER": None,
+    "TAG_SORTER": None,
 }
 
 

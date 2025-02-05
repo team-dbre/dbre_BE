@@ -14,9 +14,9 @@ from drf_spectacular.utils import (
 )
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, GenericAPIView
-from rest_framework.request import Request
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import JSONRenderer
+from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -36,6 +36,7 @@ from user.utils import get_google_access_token, get_google_user_info
 
 @extend_schema_view(
     post=extend_schema(
+        tags=['user'],
         summary="User Registration",
         description="Register a new user with terms agreements.",
         request=UserRegistrationSerializer,
@@ -81,6 +82,7 @@ class UserRegistrationView(CreateAPIView):
 
 @extend_schema_view(
     post=extend_schema(
+        tags=['user'],
         summary="Check Email Availability",
         description="Check if the provided email is already registered.",
         request=EmailCheckSerializer,
@@ -116,7 +118,7 @@ class EmailCheckView(GenericAPIView):
             status=status.HTTP_200_OK,
         )
 
-
+@extend_schema(tags=['user'])
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer  # type: ignore
 
@@ -157,12 +159,14 @@ class LoginView(TokenObtainPairView):
             cache.set(
                 f"user_token:{user.id}",
                 {"access_token": access_token, "refresh_token": refresh_token},
-                timeout=cast(timedelta, settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']).total_seconds(),
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
             )
 
         return response
 
-
+@extend_schema(tags=['user'])
 class LogoutView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LogoutSerializer
@@ -193,7 +197,7 @@ class LogoutView(GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-
+@extend_schema(tags=['user'])
 class GoogleLoginView(GenericAPIView):
     serializer_class = GoogleLoginSerializer
     renderer_classes = [JSONRenderer]
@@ -246,7 +250,9 @@ class GoogleLoginView(GenericAPIView):
             cache.set(
                 f"user_token:{user.id}",
                 {"access_token": access_token, "refresh_token": refresh_token},
-                timeout=cast(timedelta, settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']).total_seconds(),
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
             )
 
             return Response(
@@ -264,7 +270,7 @@ class GoogleLoginView(GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-
+@extend_schema(tags=['user'])
 class GoogleCallbackView(GenericAPIView):
     serializer_class = GoogleCallbackSerializer
     renderer_classes = [JSONRenderer]
