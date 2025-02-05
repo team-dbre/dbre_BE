@@ -30,16 +30,15 @@ class CreateTermAPI(ListCreateAPIView):
     serializer_class = TermsModelSerializer
 
 
-@extend_schema_view(
-    get=extend_schema(
-        summary="Get the latest Terms",
-        description="Fetch the most recently created Terms entry.",
-        responses=TermsModelSerializer,  # 응답 타입 명시
-    )
+@extend_schema(
+    methods=["GET"],
+    summary="Get the latest Terms",
+    description="Fetch the most recently created Terms entry.",
+    responses={200: TermsModelSerializer},  # 상태 코드와 함께 응답 타입 지정
 )
 class LatestTermsAPI(GenericAPIView):
-    serializer_class = TermsModelSerializer  # serializer_class 추가
-    queryset = Terms.objects.all()  # queryset 추가
+    serializer_class = TermsModelSerializer
+    queryset = Terms.objects.all()
 
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
         latest_term = Terms.objects.latest("created_at")
