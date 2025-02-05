@@ -36,7 +36,7 @@ from user.utils import get_google_access_token, get_google_user_info
 
 @extend_schema_view(
     post=extend_schema(
-        tags=['user'],
+        tags=["user"],
         summary="User Registration",
         description="Register a new user with terms agreements.",
         request=UserRegistrationSerializer,
@@ -82,7 +82,7 @@ class UserRegistrationView(CreateAPIView):
 
 @extend_schema_view(
     post=extend_schema(
-        tags=['user'],
+        tags=["user"],
         summary="Check Email Availability",
         description="Check if the provided email is already registered.",
         request=EmailCheckSerializer,
@@ -118,7 +118,8 @@ class EmailCheckView(GenericAPIView):
             status=status.HTTP_200_OK,
         )
 
-@extend_schema(tags=['user'])
+
+@extend_schema(tags=["user"])
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer  # type: ignore
 
@@ -166,7 +167,8 @@ class LoginView(TokenObtainPairView):
 
         return response
 
-@extend_schema(tags=['user'])
+
+@extend_schema(tags=["user"])
 class LogoutView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LogoutSerializer
@@ -197,7 +199,8 @@ class LogoutView(GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-@extend_schema(tags=['user'])
+
+@extend_schema(tags=["user"])
 class GoogleLoginView(GenericAPIView):
     serializer_class = GoogleLoginSerializer
     renderer_classes = [JSONRenderer]
@@ -270,7 +273,8 @@ class GoogleLoginView(GenericAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-@extend_schema(tags=['user'])
+
+@extend_schema(tags=["user"])
 class GoogleCallbackView(GenericAPIView):
     serializer_class = GoogleCallbackSerializer
     renderer_classes = [JSONRenderer]
