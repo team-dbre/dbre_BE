@@ -58,8 +58,10 @@ class LoginSerializer(TokenObtainPairSerializer):
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField(required=True)
 
+
 class GoogleLoginSerializer(serializers.Serializer):
     code = serializers.CharField(required=True)
+
 
 class GoogleCallbackSerializer(serializers.Serializer):
     code = serializers.CharField(required=True)

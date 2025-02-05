@@ -42,7 +42,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6666:6379"
+      - "6379:6379"  # 표준 Redis 포트 사용 권장
     restart: always
 #    networks:
 #      - dbre_network
