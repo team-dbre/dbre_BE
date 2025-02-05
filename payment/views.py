@@ -4,7 +4,8 @@ import os
 import uuid
 
 from dataclasses import asdict
-from datetime import timedelta
+from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Optional
 
 import portone_server_sdk as portone
@@ -16,11 +17,17 @@ from django.utils import timezone
 from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from portone_server_sdk._generated.common.customer_input import CustomerInput
+from portone_server_sdk._generated.common.customer_name_input import CustomerNameInput
+from portone_server_sdk._generated.common.payment_amount_input import PaymentAmountInput
+from portone_server_sdk._generated.payment.billing_key.client import BillingKeyClient
+from portone_server_sdk._generated.payment.client import PaymentClient
 from rest_framework.request import Request
 
-from payment.models import Pays
+from payment.models import BillingKey, Pays
 from plan.models import Plans
-from subscription.models import Subs
+from subscription.models import SubHistories, Subs
+from user.models import CustomUser
 
 
 logger = logging.getLogger(__name__)
@@ -300,22 +307,464 @@ def verify_payment(payment: portone.payment.PaidPayment, subscription: Subs) -> 
     return True
 
 
-# @csrf_exempt
-# @require_POST
-# def receive_webhook(request):
-#     """포트원 Webhook 처리"""
-#     try:
-#         body = request.body.decode("utf-8")
-#         headers = request.headers
-#
-#         webhook = portone.webhook.verify(
-#             os.environ.get("V2_WEBHOOK_SECRET"), body, headers
-#         )
-#
-#     except portone.webhook.WebhookVerificationError:
-#         return JsonResponse({"error": "Bad Request"}, status=400)
-#
-#     if isinstance(webhook, dict) and isinstance(webhook.get("data"), portone.webhook.WebhookTransactionData):
-#         sync_payment(webhook["data"].payment_id)
-#
-#     return JsonResponse({"message": "OK"}, status=200)
+
+@csrf_exempt
+@require_POST
+def cancel_payment(request: Request) -> HttpResponse:
+    """환불 API"""
+    try:
+        data = json.loads(request.body)
+        imp_uid = data.get("imp_uid")
+        reason = data.get("reason", "고객 요청 환불")
+
+        if not imp_uid:
+            return JsonResponse({"error": "Missing imp_uid"}, status=400)
+
+        # 결제 정보 가져오기
+        pays = Pays.objects.filter(imp_uid=imp_uid).first()
+        if not pays:
+            return JsonResponse({"error": "결제 내역을 찾을 수 없습니다."}, status=404)
+
+        # 환불 가능 여부 확인
+        if pays.status in ["CANCELLED", "REFUNDED"]:
+            return JsonResponse({"error": "이미 취소된 결제입니다."}, status=400)
+
+        # 구독 정보 가져오기
+        subscription = Subs.objects.filter(id=pays.subs.id).first()
+        if not subscription:
+            return JsonResponse({"error": "구독 정보를 찾을 수 없습니다."}, status=404)
+
+        start_date = subscription.start_date
+        end_date = subscription.end_date or (
+            start_date + timedelta(days=30)
+        )  # 예외 처리
+        today = now().date()
+
+        # 사용 여부 확인 (예: 서비스 사용 기록이 없으면 전액 환불)
+        service_used = False  # 🚨 실제 서비스 사용 여부 체크하는 로직 필요
+
+        # 전액 환불 (서비스 미사용)
+        if not service_used:
+            refund_amount = pays.amount  # 100% 환불
+
+        # 남은 기간 계산 (서비스 사용)
+        else:
+            total_days = (end_date - start_date).days  # 한 달 기준 총 일 수
+            used_days = (today - start_date.date()).days  # 사용한 일 수
+            remaining_days = total_days - used_days  # 남은 일 수
+
+            if remaining_days <= 0:
+                return JsonResponse(
+                    {"error": "구독이 이미 만료되어 환불이 불가합니다."}, status=400
+                )
+
+            refund_amount = (
+                Decimal(remaining_days) / Decimal(total_days)
+            ) * pays.amount
+            refund_amount = Decimal(refund_amount).quantize(
+                Decimal("0.01")
+            )  # 소수점 반올림
+
+        logger.info(f"[cancel_payment] 환불 금액 계산 완료: {refund_amount}")
+
+        # 포트원 환불 요청
+        try:
+            refund_response = portone_client.cancel_payment(
+                payment_id=imp_uid,
+                amount=int(refund_amount),
+                reason=reason,
+            )
+            logger.info(
+                f"✅ [cancel_payment] 환불 성공 응답: {refund_response.__dict__}"
+            )
+
+        except portone.payment.CancelPaymentError as e:
+            logger.error(f"[cancel_payment] 환불 실패: {e}")
+            return JsonResponse({"error": "환불 실패", "details": str(e)}, status=500)
+
+        # 결제 상태 업데이트
+        pays.status = "REFUNDED"
+        pays.save()
+
+        return JsonResponse(
+            {
+                "imp_uid": pays.imp_uid,
+                "status": pays.status,
+                "refund_amount": refund_amount,
+                "message": "환불 성공",
+            }
+        )
+
+    except json.JSONDecodeError:
+        return JsonResponse({"error": "Invalid JSON format"}, status=400)
+
+
+def subscription_payment_page(request: HttpRequest) -> HttpResponse:
+    """정기 결제 페이지"""
+    return render(request, "subscription_payment.html")
+
+
+PORTONE_API_URL = "https://api.portone.io/v2"
+IMP_API_KEY = os.getenv("STORE_ID")
+IMP_API_SECRET = os.getenv("IMP_API_SECRET")
+PORTONE_CHANNEL_KEY = os.getenv("PORTONE_CHANNEL_KEY")
+
+
+@csrf_exempt
+def store_billing_key(request: HttpRequest) -> HttpResponse:
+    """Billing Key 저장 API (포트원 SDK 응답값 저장)"""
+    try:
+        data = json.loads(request.body)
+        user_id = data.get("user_id")
+        billing_key = data.get("billing_key")
+
+        if not user_id or not billing_key:
+            return JsonResponse({"error": "Missing user_id or billing_key"}, status=400)
+
+        user = get_object_or_404(CustomUser, id=user_id)
+
+        # Billing Key 저장
+        BillingKey.objects.update_or_create(
+            user=user, defaults={"billing_key": billing_key}
+        )
+
+        logger.info(f"Billing Key 저장 성공: {billing_key} (User: {user_id})")
+        return JsonResponse({"message": "Billing Key 저장 성공"}, status=200)
+
+    except Exception as e:
+        logger.error(f"Billing Key 저장 실패: {e}")
+        return JsonResponse(
+            {"error": "Billing Key 저장 실패", "details": str(e)}, status=500
+        )
+
+
+PORTONE_SECRET = os.getenv("IMP_API_SECRET")
+portone_client2 = PaymentClient(secret=PORTONE_SECRET or "")
+billing_key_client = BillingKeyClient(secret=PORTONE_SECRET or "")
+
+
+@csrf_exempt
+def request_subscription_payment(request: Request) -> JsonResponse:
+    """포트원 SDK를 사용한 정기 결제 API"""
+    logger.info("[request_subscription_payment] 정기 결제 요청 수신")
+
+    try:
+        if not request.body:
+            logger.error("요청 본문이 비어 있음")
+            return JsonResponse({"error": "Empty request body"}, status=400)
+
+        logger.info(f"요청 본문: {request.body.decode('utf-8')}")
+
+        data = json.loads(request.body.decode("utf-8"))
+
+        # 필수 필드 검증
+        required_fields = ["user_id", "plan_id", "payment_id", "billing_key"]
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return JsonResponse(
+                {"error": "Missing required fields", "missing_fields": missing_fields},
+                status=400,
+            )
+
+        # UUID 형식 검증
+        try:
+            user_uuid = uuid.UUID(data["user_id"])
+        except ValueError:
+            return JsonResponse({"error": "Invalid user_id format"}, status=400)
+
+        billing_key = data["billing_key"].strip()
+
+        # 데이터 조회
+        try:
+            user = CustomUser.objects.get(id=user_uuid)
+            plan = Plans.objects.get(id=data["plan_id"])
+            billing_key_obj = BillingKey.objects.get(user=user)
+            if billing_key_obj.billing_key != billing_key:
+                logger.error(
+                    f"Billing Key 불일치: {billing_key_obj.billing_key} != {billing_key}"
+                )
+                return JsonResponse({"error": "Billing Key 불일치"}, status=400)
+            logger.info(f"Billing Key 조회 성공: {billing_key}")
+        except (
+            CustomUser.DoesNotExist,
+            Plans.DoesNotExist,
+            BillingKey.DoesNotExist,
+        ) as e:
+            return JsonResponse({"error": str(e)}, status=404)
+
+        # ✅ 기존 구독 확인 후 가져오기 (중복 방지)
+        existing_sub = Subs.objects.filter(user=user, plan=plan).first()
+        if existing_sub:
+            logger.info(f"기존 구독 정보 존재: {existing_sub.id}")
+            sub = existing_sub
+        else:
+            # 새로운 구독 생성
+            next_billing_date = timezone.now() + timedelta(days=30)
+            sub = Subs.objects.create(
+                user=user,
+                plan=plan,
+                billing_key=billing_key_obj,
+                next_bill_date=next_billing_date,
+                auto_renew=True,
+            )
+            logger.info(f"새로운 구독 생성: {sub.id}")
+
+        # ✅ `payment_id` 32자 이하로 제한
+        short_payment_id = f"PAY{int(timezone.now().timestamp())}"
+        logger.info(f"생성된 결제 요청 ID: {short_payment_id}")
+
+        # CustomerInput 객체 생성
+        customer_info = CustomerInput(
+            id=str(user.id),
+            email=user.email or "",
+            name=CustomerNameInput(full=user.name or "Unnamed User"),
+        )
+
+        # ✅ 포트원 결제 요청
+        logger.info(
+            f"[포트원 결제 요청] payment_id: {short_payment_id}, order_name: {plan.plan_name}, amount: {plan.price}, currency: KRW"
+        )
+
+        try:
+            response = portone_client2.pay_with_billing_key(
+                payment_id=short_payment_id,
+                billing_key=billing_key.strip(),
+                order_name=plan.plan_name,
+                amount=PaymentAmountInput(total=int(plan.price)),
+                currency="KRW",
+                customer=customer_info,
+                bypass={"pgProvider": "kpn"},
+            )
+
+            logger.info(
+                f"[request_subscription_payment] 포트원 결제 요청 성공: {response}"
+            )
+
+        except Exception as e:
+            logger.error(f"🚨 포트원 결제 요청 실패: {e}")
+            return JsonResponse(
+                {"error": "PortOne payment request failed", "details": str(e)},
+                status=500,
+            )
+
+        # ✅ 포트원 응답에서 결제 성공 여부 확인
+        try:
+            if not response.payment or not response.payment.pg_tx_id:
+                logger.warning(
+                    f"[request_subscription_payment] 결제 취소됨 또는 실패: {response}"
+                )
+                return JsonResponse(
+                    {"error": "Payment was canceled or failed"}, status=400
+                )
+
+            payment_id_response = response.payment.pg_tx_id
+            logger.info(f"결제 완료 - Payment ID: {payment_id_response}")
+
+        except Exception as e:
+            logger.error(f"[request_subscription_payment] 응답 처리 실패: {e}")
+            return JsonResponse(
+                {"error": "Failed to process payment response"}, status=500
+            )
+
+        # ✅ 결제 정보 저장
+        try:
+            payment = Pays.objects.create(
+                user=user,
+                subs=sub,
+                imp_uid=payment_id_response,  # 포트원에서 받은 실제 결제 ID 저장
+                merchant_uid=short_payment_id,  # 내부적으로 사용하는 결제 ID
+                amount=plan.price,
+                status="PAID",
+            )
+            logger.info(f"결제 정보 저장 완료: {payment.id}")
+
+            # ✅ 사용자 구독 상태 변경
+            user.sub_status = "active"
+            user.save(update_fields=["sub_status"])
+            logger.info(f"📌 사용자 {user.id}의 구독 상태를 'active'로 업데이트")
+
+            # ✅ 구독 변경 기록 추가
+            SubHistories.objects.create(
+                sub=sub,
+                user=user,
+                plan=plan,
+                change_date=timezone.now(),
+                status="renewal",
+            )
+
+            return JsonResponse(
+                {
+                    "message": "정기 결제 성공",
+                    "payment_id": payment_id_response,
+                    "next_billing_date": (
+                        sub.next_bill_date.isoformat() if sub.next_bill_date else None
+                    ),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"결제 정보 저장 실패: {str(e)}")
+            return JsonResponse(
+                {"error": "Failed to save payment information", "details": str(e)},
+                status=500,
+            )
+
+    except Exception as e:
+        logger.error(f"[request_subscription_payment] 예외 발생: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def portone_webhook(request: Request) -> JsonResponse:
+    """포트원 웹훅 엔드포인트"""
+    try:
+        body = json.loads(request.body.decode("utf-8"))
+        logger.info(f"📌 [Webhook] 수신 데이터: {body}")
+
+        # 웹훅 필수 필드
+        imp_uid = body.get("imp_uid")  # 포트원 결제 고유 ID
+        status = body.get("status")  # 결제 상태 (paid, failed, cancelled, etc.)
+        merchant_uid = body.get(
+            "merchant_uid"
+        )  # 주문번호 (우리 시스템에서 생성한 결제 ID)
+
+        if not imp_uid or not status or not merchant_uid:
+            logger.error("[Webhook] 필수 데이터 누락")
+            return JsonResponse({"error": "Missing required fields"}, status=400)
+
+        # 기존 결제 정보 조회
+        try:
+            payment = Pays.objects.get(merchant_uid=merchant_uid)
+        except Pays.DoesNotExist:
+            logger.error(f"[Webhook] 해당 결제 정보를 찾을 수 없음: {merchant_uid}")
+            return JsonResponse({"error": "Payment not found"}, status=404)
+
+        # 결제 상태 업데이트
+        payment.status = status.upper()  # 포트원 상태를 대문자로 변환하여 저장
+        payment.save(update_fields=["status"])
+
+        # 구독 상태 업데이트 (결제 성공 시)
+        if status == "paid":
+            try:
+                subscription = Subs.objects.get(user=payment.user)
+                subscription.next_bill_date = now() + timedelta(
+                    days=30
+                )  # 다음 결제일 갱신
+                subscription.auto_renew = True  # 자동 갱신 활성화
+                subscription.save(update_fields=["next_bill_date", "auto_renew"])
+                logger.info(f"✅ [Webhook] 구독 정보 업데이트 완료: {subscription.id}")
+            except Subs.DoesNotExist:
+                logger.warning(
+                    f"[Webhook] 해당 유저의 구독 정보 없음: {payment.user.id}"
+                )
+
+        logger.info(f"✅ [Webhook] 결제 상태 업데이트 완료: {imp_uid} → {status}")
+        return JsonResponse({"message": "Webhook received successfully"}, status=200)
+
+    except json.JSONDecodeError:
+        logger.error("[Webhook] JSON 파싱 실패")
+        return JsonResponse({"error": "Invalid JSON format"}, status=400)
+
+    except Exception as e:
+        logger.error(f"[Webhook] 예외 발생: {str(e)}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+@require_POST  # ✅ POST 요청만 허용
+def receive_webhook(request: Request) -> JsonResponse:
+    """포트원 결제 웹훅(Webhook) 처리"""
+    try:
+        # 요청 방식 확인
+        if request.method != "POST":
+            logger.error("❌ [WebHook] 잘못된 요청 방식: GET 요청 수신")
+            return JsonResponse({"error": "Only POST method allowed"}, status=405)
+
+        # 요청 본문 확인
+        if not request.body:
+            logger.error("❌ [WebHook] 요청 본문 없음")
+            return JsonResponse({"error": "Empty request body"}, status=400)
+
+        # JSON 데이터 파싱
+        try:
+            data = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError as e:
+            logger.error(f"❌ [WebHook] JSON 파싱 실패: {str(e)}")
+            return JsonResponse({"error": "Invalid JSON format"}, status=400)
+
+        logger.info(
+            f"📌 [WebHook] 포트원 웹훅 수신: {json.dumps(data, indent=4, ensure_ascii=False)}"
+        )
+
+        # 필수 필드 확인
+        payment_id = data.get("paymentId")
+        status = data.get("status")  # 'paid', 'failed', 'cancelled' 등
+
+        if not payment_id:
+            logger.error("❌ [WebHook] paymentId 없음")
+            return JsonResponse({"error": "Missing paymentId"}, status=400)
+
+        # ✅ 결제 정보 업데이트
+        payment = Pays.objects.filter(imp_uid=payment_id).first()
+        if payment:
+            payment.status = status.upper()
+            payment.save()
+            logger.info(
+                f"✅ [WebHook] 결제 상태 업데이트: {payment_id} → {status.upper()}"
+            )
+        else:
+            logger.warning(f"⚠️ [WebHook] 결제 정보 없음: {payment_id}")
+
+        return JsonResponse({"message": "Webhook received successfully"}, status=200)
+
+    except Exception as e:
+        logger.error(f"❌ [WebHook] 처리 실패: {e}")
+        return JsonResponse({"error": str(e)}, status=500)
+
+
+@csrf_exempt
+def get_billing_key(request: Request, user_id: str) -> HttpResponse:
+    """특정 사용자의 Billing Key 조회 API"""
+    try:
+        # 로깅 추가
+        logger.info(f"[get_billing_key] Billing Key 조회 요청 - User ID: {user_id}")
+
+        # UUID 형식 검증
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            logger.error(f"[get_billing_key] 잘못된 UUID 형식 - User ID: {user_id}")
+            return JsonResponse({"error": "잘못된 사용자 ID 형식입니다."}, status=400)
+
+        # 사용자 조회
+        user = get_object_or_404(CustomUser, id=user_uuid)
+
+        try:
+            # Billing Key 조회
+            billing_key = BillingKey.objects.get(user=user)
+            logger.info(f"[get_billing_key] Billing Key 조회 성공 - User ID: {user_id}")
+
+            return JsonResponse(
+                {
+                    "message": "Billing Key 조회 성공",
+                    "billing_key": billing_key.billing_key,
+                    "created_at": billing_key.created_at.isoformat(),
+                }
+            )
+
+        except BillingKey.DoesNotExist:
+            logger.warning(f"[get_billing_key] Billing Key 없음 - User ID: {user_id}")
+            return JsonResponse({"error": "등록된 Billing Key가 없습니다."}, status=404)
+
+    except CustomUser.DoesNotExist:
+        logger.error(f"[get_billing_key] 사용자 없음 - User ID: {user_id}")
+        return JsonResponse({"error": "사용자를 찾을 수 없습니다."}, status=404)
+
+    except Exception as e:
+        logger.error(
+            f"[get_billing_key] 예외 발생 - User ID: {user_id}, Error: {str(e)}"
+        )
+        return JsonResponse(
+            {"error": "Billing Key 조회 중 오류가 발생했습니다.", "details": str(e)},
+            status=500,
+        )

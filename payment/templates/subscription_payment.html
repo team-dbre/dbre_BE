@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>포트원 Billing Key 발급 및 정기 결제</title>
+    <script src="https://cdn.portone.io/v2/browser-sdk.js"></script>
+    <style>
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+        .section { margin-bottom: 30px; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .input-group { margin-bottom: 10px; }
+        input { padding: 8px; margin-right: 10px; }
+        button { padding: 8px 16px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+        .result { margin-top: 10px; padding: 10px; background-color: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>포트원 Billing Key 발급 및 정기 결제</h1>
+
+        <!-- ✅ 사용자 정보 입력 및 Billing Key 발급 섹션 -->
+        <div class="section">
+            <h2>Billing Key 등록</h2>
+            <div class="input-group">
+                <input type="text" id="user_id" placeholder="사용자 ID (UUID)">
+                <input type="text" id="user_name" placeholder="사용자 이름">
+            </div>
+            <button onclick="requestIssueBillingKey()">Billing Key 발급 요청</button>
+            <p id="billing_key_result" class="result"></p>
+        </div>
+
+        <!-- ✅ 정기 결제 섹션 -->
+        <div class="section">
+            <h2>정기 결제 요청</h2>
+            <div class="input-group">
+                <input type="text" id="payment_user_id" placeholder="결제할 사용자 ID">
+                <input type="text" id="plan_id" placeholder="요금제 ID">
+            </div>
+            <button onclick="requestSubscriptionPayment()">정기 결제 요청</button>
+            <p id="payment_result" class="result"></p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = "http://127.0.0.1:8000/api/payment";
+
+        // ✅ Billing Key 발급 요청
+        async function requestIssueBillingKey() {
+            const userId = document.getElementById("user_id").value;
+            const userName = document.getElementById("user_name").value;
+
+            if (!userId || !userName) {
+                alert("사용자 ID와 이름을 입력하세요.");
+                return;
+            }
+
+            try {
+                console.log("✅ Billing Key 발급 요청 중...");
+
+                const response = await PortOne.requestIssueBillingKey({
+                    storeId: "store-c25c9523-5081-4aae-a882-ce7e52479c59",
+                    channelKey: "channel-key-8bc12c40-b958-4151-ae85-98c129a80099",
+                    billingKeyMethod: "CARD",
+                    issueId: `ISSUE${Date.now()}`,
+                    issueName: "Billing Key 발급 테스트",
+                    customer: {
+                        customerId: userId,
+                        fullName: userName
+                    },
+                    extra: {
+                        pg: "kpn",
+                        method: "card"
+                    }
+                });
+
+                console.log("✅ Billing Key 발급 성공:", response);
+
+                if (!response.billingKey) {
+                    throw new Error("Billing Key 발급 실패");
+                }
+
+                // ✅ 발급된 Billing Key를 Django 백엔드에 저장
+                const saveResponse = await fetch(`${API_BASE_URL}/billing-key/`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({
+                        user_id: userId,
+                        billing_key: response.billingKey
+                    })
+                });
+
+                const saveData = await saveResponse.json();
+
+                if (!saveResponse.ok) {
+                    throw new Error(saveData.error || "Billing Key 저장 실패");
+                }
+
+                document.getElementById("billing_key_result").innerText =
+                    "✅ Billing Key 발급 및 저장 성공";
+
+                // 결제 섹션의 사용자 ID 자동 입력
+                document.getElementById("payment_user_id").value = userId;
+
+            } catch (error) {
+                console.error("❌ Billing Key 처리 실패:", error);
+                document.getElementById("billing_key_result").innerText =
+                    `❌ 실패: ${error.message}`;
+            }
+        }
+
+        // ✅ 정기 결제 요청
+        async function requestSubscriptionPayment() {
+            const userId = document.getElementById("payment_user_id").value;
+            const planId = document.getElementById("plan_id").value;
+
+            if (!userId || !planId) {
+                alert("사용자 ID와 요금제 ID를 입력하세요.");
+                return;
+            }
+
+            try {
+                // ✅ 저장된 Billing Key 조회
+                const billingKeyResponse = await fetch(`${API_BASE_URL}/billing-key/${userId}/`);
+                if (!billingKeyResponse.ok) {
+                    throw new Error("저장된 Billing Key가 없습니다. 먼저 Billing Key를 등록해주세요.");
+                }
+                const billingKeyData = await billingKeyResponse.json();
+                const storedBillingKey = billingKeyData.billing_key;
+
+                // ✅ 요금제 정보 조회
+                const planResponse = await fetch(`http://127.0.0.1:8000/api/plans/${planId}/`);
+                if (!planResponse.ok) {
+                    throw new Error("요금제 정보를 불러오지 못했습니다.");
+                }
+                const planData = await planResponse.json();
+
+                // ✅ 결제 요청
+                const paymentId = `PAYMENT${Date.now()}`;
+                const response = await PortOne.requestPayment({
+                    storeId: "store-c25c9523-5081-4aae-a882-ce7e52479c59",
+                    channelKey: "channel-key-8bc12c40-b958-4151-ae85-98c129a80099",
+                    paymentId: paymentId,
+                    orderName: planData.name,
+                    totalAmount: planData.price,
+                    currency: "KRW",
+                    payMethod: "CARD",
+                    billingKey: storedBillingKey,
+                    extra: {
+                        pg: "kpn",
+                        method: "card",
+                        name: "KPN 정기결제",
+                        showResult: true
+                    }
+                });
+
+                if (!response?.paymentId) {
+                    throw new Error("결제 실패: 결제 ID를 받지 못했습니다.");
+                }
+
+                // ✅ 결제 정보 저장
+                const backendResponse = await fetch(`${API_BASE_URL}/subscribe/`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify({
+                    user_id: userId,
+                    plan_id: planId,
+                    payment_id: response.paymentId,
+                    billing_key: storedBillingKey,
+                    amount: planData.price  // 금액 정보 추가
+                })
+            });
+
+            // 응답 처리 수정
+            if (!backendResponse.ok) {
+                const errorText = await backendResponse.text();
+                console.error("백엔드 응답:", errorText);
+                throw new Error(`결제 정보 저장 실패: ${errorText}`);
+            }
+
+            const saveData = await backendResponse.json();
+                console.log("✅ 결제 완료:", saveData);
+                document.getElementById("payment_result").innerText = "✅ 정기 결제 성공!";
+
+            } catch (error) {
+                console.error("❌ 결제 실패:", error);
+                document.getElementById("payment_result").innerText = `❌ 실패: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>
