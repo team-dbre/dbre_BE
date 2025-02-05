@@ -6,6 +6,21 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
+from payment.views import (
+    cancel_payment,
+    complete_payment,
+    get_billing_key,
+    get_item,
+    payment_page,
+    portone_webhook,
+    request_payment,
+    request_subscription_payment,
+    store_billing_key,
+)
+
+# from payment.views import payment_page, request_payment, complete_payment, get_item, cancel_payment, store_billing_key, \
+#     request_subscription_payment
+from plan.views import get_plan_details
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
     EmailCheckView,
@@ -26,7 +41,23 @@ term_patterns = [
 
 # Payment 관련 URL 패턴
 payment_patterns = [
-    path("", include("payment.urls")),
+    path("", payment_page, name="payment_page"),
+    path("request/", request_payment, name="request_payment"),
+    path("complete/", complete_payment, name="complete_payment"),
+    path("item/", get_item, name="get_item"),
+    path("cancel/", cancel_payment, name="cancel_payment"),
+    path("billing-key/", store_billing_key, name="store_billing_key"),
+    path(
+        "subscribe/", request_subscription_payment, name="request_subscription_payment"
+    ),
+    path("billing-key/<str:user_id>/", get_billing_key, name="get_billing_key"),
+    path("webhook/", portone_webhook, name="portone_webhook"),
+]
+
+
+# Plan 관련 URL 패턴
+plan_patterns = [
+    path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
 ]
 
 # User 관련 URL 패턴
@@ -50,6 +81,7 @@ urlpatterns = [
     path("api/term/", include((term_patterns, "term"))),
     path("api/payment/", include((payment_patterns, "payment"))),
     path("api/user/", include((user_patterns, "user"))),
+    path("api/plans/", include((plan_patterns, "plan"))),
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
 ]
