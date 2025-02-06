@@ -1,16 +1,23 @@
-from typing import Any
+from datetime import timedelta
+from typing import Any, cast
+from urllib.parse import urlencode
 
+from django.conf import settings
+from django.core.cache import cache
 from django.http.request import HttpRequest
 from django.utils import timezone
-from drf_spectacular.utils import OpenApiExample, extend_schema, extend_schema_view
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import status
 from rest_framework.generics import CreateAPIView, GenericAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.renderers import JSONRenderer
+from rest_framework.request import Request
 from rest_framework.response import Response
-from rest_framework_simplejwt.token_blacklist.models import (
-    BlacklistedToken,
-    OutstandingToken,
-)
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -18,14 +25,18 @@ from term.models import Terms
 from user.models import Agreements, CustomUser
 from user.serializers import (
     EmailCheckSerializer,
+    GoogleCallbackSerializer,
+    GoogleLoginSerializer,
     LoginSerializer,
     LogoutSerializer,
     UserRegistrationSerializer,
 )
+from user.utils import get_google_access_token, get_google_user_info
 
 
 @extend_schema_view(
     post=extend_schema(
+        tags=["user"],
         summary="User Registration",
         description="Register a new user with terms agreements.",
         request=UserRegistrationSerializer,
@@ -71,6 +82,7 @@ class UserRegistrationView(CreateAPIView):
 
 @extend_schema_view(
     post=extend_schema(
+        tags=["user"],
         summary="Check Email Availability",
         description="Check if the provided email is already registered.",
         request=EmailCheckSerializer,
@@ -107,6 +119,7 @@ class EmailCheckView(GenericAPIView):
         )
 
 
+@extend_schema(tags=["user"])
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer  # type: ignore
 
@@ -133,17 +146,40 @@ class LoginView(TokenObtainPairView):
         },
     )
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
-        return super().post(request, *args, **kwargs)
+        response = super().post(request, *args, **kwargs)
+
+        if response.status_code == 200:
+            # 토큰 정보 가져오기
+            access_token = response.data.get("access_token")
+            refresh_token = response.data.get("refresh_token")
+
+            # 현재 사용자 정보 가져오기
+            user = request.user
+
+            # Redis에 토큰 저장
+            cache.set(
+                f"user_token:{user.id}",
+                {"access_token": access_token, "refresh_token": refresh_token},
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
+            )
+
+        return response
 
 
+@extend_schema(tags=["user"])
 class LogoutView(GenericAPIView):
     permission_classes = [IsAuthenticated]
     serializer_class = LogoutSerializer
 
-    def post(self, request: HttpRequest) -> Response:
+    def post(self, request: Request) -> Response:
         try:
-            serializer = self.get_serializer(data=request.data)  # type: ignore
+            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
+
+            # Redis에서 토큰 삭제
+            cache.delete(f"user_token:{request.user.id}")
 
             refresh_token = serializer.validated_data["refresh_token"]
             token = RefreshToken(refresh_token)
@@ -153,17 +189,7 @@ class LogoutView(GenericAPIView):
                 {"message": "로그아웃이 완료되었습니다."}, status=status.HTTP_200_OK
             )
 
-            # 쿠키 삭제를 set_cookie로 구현
-            response.set_cookie(
-                "refresh_token",
-                value="",
-                max_age=0,
-                expires="Thu, 01 Jan 1970 00:00:00 GMT",
-                path="/",
-                secure=True,
-                httponly=True,
-                samesite="None",
-            )
+            response.delete_cookie("refresh_token")
 
             return response
 
@@ -172,3 +198,99 @@ class LogoutView(GenericAPIView):
                 {"message": "로그아웃에 실패했습니다.", "detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+@extend_schema(tags=["user"])
+class GoogleLoginView(GenericAPIView):
+    serializer_class = GoogleLoginSerializer
+    renderer_classes = [JSONRenderer]
+
+    def get(self, request: Request) -> Response:
+        params = {
+            "client_id": settings.GOOGLE_CLIENT_ID,
+            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "response_type": "code",
+            "scope": "email profile",
+            "access_type": "offline",
+            "prompt": "select_account",
+        }
+
+        auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
+        return Response({"auth_url": auth_url})
+
+    def post(self, request: Request) -> Response:
+        try:
+            code = request.data.get("code")
+            access_token = get_google_access_token(code)
+            # access_token이 None일 수 있는 부분 처리
+            if access_token is None:
+                raise ValueError("Failed to get access token")
+            user_info = get_google_user_info(access_token)
+
+            try:
+                user = CustomUser.objects.get(email=user_info["email"])
+            except CustomUser.DoesNotExist:
+                user = CustomUser.objects.create_user(
+                    email=user_info["email"],
+                    name=user_info.get("name", ""),
+                    provider="google",
+                    img_url=user_info.get("picture"),
+                )
+
+                latest_terms = Terms.objects.latest("created_at")
+                Agreements.objects.create(
+                    user=user,
+                    terms_url=f"/terms/{latest_terms.id}",
+                    agreed_at=timezone.now(),
+                    marketing=False,
+                )
+
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+            refresh_token = str(refresh)
+
+            # Redis에 토큰 저장
+            cache.set(
+                f"user_token:{user.id}",
+                {"access_token": access_token, "refresh_token": refresh_token},
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
+            )
+
+            return Response(
+                {
+                    "message": "구글 로그인이 완료되었습니다.",
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"message": "구글 로그인에 실패했습니다.", "detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+@extend_schema(tags=["user"])
+class GoogleCallbackView(GenericAPIView):
+    serializer_class = GoogleCallbackSerializer
+    renderer_classes = [JSONRenderer]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(
+                response=GoogleCallbackSerializer, description="구글 콜백 처리"
+            )
+        }
+    )
+    def get(self, request: Request) -> Response:
+        code = request.GET.get("code")
+        if not code:
+            return Response(
+                {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response({"code": code}, status=status.HTTP_200_OK)

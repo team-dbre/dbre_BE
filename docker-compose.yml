@@ -42,14 +42,19 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6666:6379"
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: always
-#    networks:
-#      - dbre_network
+    networks:
+      - dbre_network
+
+networks:
+  dbre_network:
+    driver: bridge
 
 volumes:
   postgres_data:
-
-#networks:
-#  dbre_network:
-#    driver: bridge

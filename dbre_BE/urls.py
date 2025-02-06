@@ -22,7 +22,14 @@ from payment.views import (
 #     request_subscription_payment
 from plan.views import get_plan_details
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
-from user.views import EmailCheckView, LoginView, LogoutView, UserRegistrationView
+from user.views import (
+    EmailCheckView,
+    GoogleCallbackView,
+    GoogleLoginView,
+    LoginView,
+    LogoutView,
+    UserRegistrationView,
+)
 
 
 # Term 관련 URL 패턴
@@ -75,4 +82,6 @@ urlpatterns = [
     path("api/payment/", include((payment_patterns, "payment"))),
     path("api/user/", include((user_patterns, "user"))),
     path("api/plans/", include((plan_patterns, "plan"))),
+    path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
+    path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
 ]

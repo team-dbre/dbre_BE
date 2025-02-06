@@ -14,11 +14,13 @@ from .serializers import TermsModelSerializer
 
 @extend_schema_view(
     get=extend_schema(
+        tags=["term"],
         summary="List all Terms",
         description="Retrieve a list of all Terms entries.",
         responses=TermsModelSerializer,
     ),
     post=extend_schema(
+        tags=["term"],
         summary="Create a new Term",
         description="Create a new Terms entry by providing 'use' and 'privacy_policy' fields.",
         request=TermsModelSerializer,
@@ -30,16 +32,16 @@ class CreateTermAPI(ListCreateAPIView):
     serializer_class = TermsModelSerializer
 
 
-@extend_schema(
-    methods=["GET"],
-    summary="Get the latest Terms",
-    description="Fetch the most recently created Terms entry.",
-    responses={200: TermsModelSerializer},  # 상태 코드와 함께 응답 타입 지정
-)
 class LatestTermsAPI(GenericAPIView):
     serializer_class = TermsModelSerializer
     queryset = Terms.objects.all()
 
+    @extend_schema(
+        tags=["term"],
+        summary="Get the latest Terms",
+        description="Fetch the most recently created Terms entry.",
+        responses={200: TermsModelSerializer},  # 상태 코드와 함께 응답 타입 지정
+    )
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> Response:
         latest_term = Terms.objects.latest("created_at")
         serializer = self.get_serializer(latest_term)
@@ -48,6 +50,7 @@ class LatestTermsAPI(GenericAPIView):
 
 @extend_schema_view(
     get=extend_schema(
+        tags=["term"],
         summary="Get Terms by ID",
         description="Fetch a specific Terms entry by its ID.",
     )
