@@ -42,7 +42,7 @@ jobs:
       LOCAL_POSTGRES_PORT: ${{ secrets.LOCAL_POSTGRES_PORT }}
       POSTGRES_DB: ${{ secrets.POSTGRES_DB }}
       DEBUG: ${{ secrets.DEBUG }}
-      REDIS_URL: redis://localhost:6666/1
+      REDIS_URL: redis://localhost:6379/1
       STATIC_ROOT: staticfiles
       DJANGO_SETTINGS_MODULE: dbre_BE.settings.local
 
