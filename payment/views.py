@@ -10,6 +10,7 @@ from typing import Optional
 
 import portone_server_sdk as portone
 
+from dateutil.relativedelta import relativedelta
 from django.contrib.auth import get_user_model
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
@@ -498,7 +499,7 @@ def request_subscription_payment(request: Request) -> JsonResponse:
             sub = existing_sub
         else:
             # 새로운 구독 생성
-            next_billing_date = timezone.now() + timedelta(days=30)
+            next_billing_date = now() + relativedelta(months=1)
             sub = Subs.objects.create(
                 user=user,
                 plan=plan,
@@ -545,6 +546,11 @@ def request_subscription_payment(request: Request) -> JsonResponse:
                 {"error": "PortOne payment request failed", "details": str(e)},
                 status=500,
             )
+        # 다음 결제일 설정
+        next_billing_date = now() + relativedelta(months=1)
+        sub.next_bill_date = next_billing_date
+        sub.save(update_fields=["next_bill_date"])
+        logger.info(f"다음 결제일: {sub.next_bill_date}")
 
         # ✅ 포트원 응답에서 결제 성공 여부 확인
         try:

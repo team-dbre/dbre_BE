@@ -30,6 +30,7 @@ black = "^24.10.0"
 isort = "^5.13.2"
 mypy = "^1.14.1"
 django-stubs = "^5.1.2"
+python-dateutil = "^2.9.0.post0"
 
 [tool.black]
 line-length = 88  # 코드 한 줄의 최대 길이 (기본값: 88)
