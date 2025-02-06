@@ -17,6 +17,9 @@ IMP_MERCHANT_ID = os.getenv("IMP_MERCHANT_ID")
 IMP_STORE_ID = os.getenv("STORE_ID")
 IMP_API_URL = "https://api.portone.io/"
 IMP_CHANNEL_KEY = "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949"
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -24,6 +27,7 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "django.contrib.sites",
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework_simplejwt",
@@ -35,6 +39,10 @@ INSTALLED_APPS = [
     "subscription",
     "user",
     "plan",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
 ]
 
 
@@ -54,6 +62,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
 ]
 
 ROOT_URLCONF = "dbre_BE.urls"
@@ -76,14 +85,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "dbre_BE.wsgi.application"
 
-
-# redis 캐시 설정
-CaCHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-        "LOCATION": os.getenv("REDIS_URL"),
-    }
-}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -111,9 +112,12 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 AUTH_USER_MODEL = "user.CustomUser"
+
+SITE_ID = 1
 # 이메일 로그인을 위한 인증 백엔드 설정
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
 SIMPLE_JWT = {
@@ -128,14 +132,36 @@ SIMPLE_JWT = {
     "USER_ID_CLAIM": "email",
 }
 
+# redis 캐시 설정
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://localhost:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            "SOCKET_CONNECT_TIMEOUT": 5,
+            "SOCKET_TIMEOUT": 5,
+            "RETRY_ON_TIMEOUT": True,
+        },
+        "KEY_PREFIX": "dbre",
+    }
+}
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "DBre_BE",
     "DESCRIPTION": "DBre project BackEnd part",
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
     "COMPONENT_SPLIT_REQUEST": True,
-    "SWAGGER_UI_SETTINGS": {"defaultModelsExpandDepth": -1},
+    "SWAGGER_UI_SETTINGS": {"defaultModelsExpandDepth": 1},
     "EXAMPLES_INCLUDE_SCHEMA": True,
+    "TAGS": [
+        {"name": "user", "description": "User management operations"},
+        {"name": "payment", "description": "Payment related operations"},
+        {"name": "term", "description": "Term related operations"},
+    ],
+    "OPERATIONS_SORTER": None,
+    "TAG_SORTER": None,
 }
 
 
@@ -160,3 +186,15 @@ CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 
 # ✅ 특정 헤더만 허용
 CORS_ALLOW_HEADERS = ["content-type", "authorization"]
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": [
+            "profile",
+            "email",
+        ],
+        "AUTH_PARAMS": {
+            "access_type": "online",
+        },
+    }
+}
