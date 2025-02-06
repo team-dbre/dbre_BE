@@ -39,9 +39,11 @@ def subscription_payment_page(request: HttpRequest) -> HttpResponse:
 class StoreBillingKeyView(APIView):
     """포트원 Billing Key 저장 API"""
 
+    serializer_class = BillingKeySerializer
+
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         """Billing Key 저장 로직"""
-        serializer = BillingKeySerializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -71,10 +73,12 @@ class StoreBillingKeyView(APIView):
 class RequestSubscriptionPaymentView(APIView):
     """포트원 SDK를 사용한 정기 결제 API"""
 
+    serializer_class = SubscriptionPaymentSerializer
+
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         logger.info("[request_subscription_payment] 정기 결제 요청 수신")
 
-        serializer = SubscriptionPaymentSerializer(data=request.data)
+        serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -116,6 +120,8 @@ class RequestSubscriptionPaymentView(APIView):
 class GetBillingKeyView(APIView):
     """특정 사용자의 Billing Key 조회 API"""
 
+    serializer_class = GetBillingKeySerializer
+
     def get(
         self, request: Request, user_id: str, *args: Any, **kwargs: Any
     ) -> Response:
@@ -145,7 +151,7 @@ class GetBillingKeyView(APIView):
 
         logger.info(f"[get_billing_key] Billing Key 조회 성공 - User ID: {user_id}")
 
-        serializer = GetBillingKeySerializer(billing_key)
+        serializer = self.serializer_class(billing_key)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
@@ -153,11 +159,13 @@ class GetBillingKeyView(APIView):
 class PortOneWebhookView(APIView):
     """포트원 결제 웹훅(Webhook) API"""
 
+    serializer_class = WebhookSerializer
+
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
             # ✅ JSON 데이터 파싱 및 검증
             data = json.loads(request.body.decode("utf-8"))
-            serializer = WebhookSerializer(data=data)
+            serializer = self.serializer_class(data=data)
 
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
