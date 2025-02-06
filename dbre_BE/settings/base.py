@@ -11,15 +11,21 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.getenv("SECRET_KEY")
+
 IMP_API_KEY = os.getenv("IMP_API_KEY")
 IMP_API_SECRET = os.getenv("IMP_API_SECRET")
 IMP_MERCHANT_ID = os.getenv("IMP_MERCHANT_ID")
 IMP_STORE_ID = os.getenv("STORE_ID")
 IMP_API_URL = "https://api.portone.io/"
 IMP_CHANNEL_KEY = "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949"
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
