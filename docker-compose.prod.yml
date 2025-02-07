@@ -16,7 +16,7 @@ services:
 
   web:
     build: .
-    env_file: .env
+    env_file: .env.prod
     ports:
       - "8000:8000"
     volumes:
@@ -31,6 +31,7 @@ services:
       - POSTGRES_HOST=db
       - DJANGO_SETTINGS_MODULE=dbre_BE.settings.prod
       - PYTHONPATH=/app:/app/dbre_BE
+      - DJANGO_ENV=prod
     depends_on:
       db:
         condition: service_healthy
@@ -61,6 +62,21 @@ services:
     restart: always
     networks:
       - dbre_network
+
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus:/etc/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
 
 volumes:
   postgres_data:
