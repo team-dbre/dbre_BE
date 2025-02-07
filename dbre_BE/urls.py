@@ -7,15 +7,10 @@ from drf_spectacular.views import (
 )
 
 from payment.views import (
-    cancel_payment,
-    complete_payment,
-    get_billing_key,
-    get_item,
-    payment_page,
-    portone_webhook,
-    request_payment,
-    request_subscription_payment,
-    store_billing_key,
+    GetBillingKeyView,
+    PortOneWebhookView,
+    RequestSubscriptionPaymentView,
+    StoreBillingKeyView,
 )
 
 # from payment.views import payment_page, request_payment, complete_payment, get_item, cancel_payment, store_billing_key, \
@@ -43,17 +38,18 @@ term_patterns = [
 
 # Payment 관련 URL 패턴
 payment_patterns = [
-    path("", payment_page, name="payment_page"),
-    path("request/", request_payment, name="request_payment"),
-    path("complete/", complete_payment, name="complete_payment"),
-    path("item/", get_item, name="get_item"),
-    path("cancel/", cancel_payment, name="cancel_payment"),
-    path("billing-key/", store_billing_key, name="store_billing_key"),
     path(
-        "subscribe/", request_subscription_payment, name="request_subscription_payment"
+        "subscribe/",
+        RequestSubscriptionPaymentView.as_view(),
+        name="request_subscription_payment",
     ),
-    path("billing-key/<str:user_id>/", get_billing_key, name="get_billing_key"),
-    path("webhook/", portone_webhook, name="portone_webhook"),
+    path(
+        "billing-key/<str:user_id>/",
+        GetBillingKeyView.as_view(),
+        name="get_billing_key",
+    ),
+    path("webhook/", PortOneWebhookView.as_view(), name="portone_webhook"),
+    path("billing-key/", StoreBillingKeyView.as_view(), name="store-billing-key"),
 ]
 
 
