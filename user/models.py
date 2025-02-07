@@ -44,8 +44,8 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
         validators=[phone_regex],
         max_length=13,
         unique=True,
-        blank=False,
-        null=False,
+        blank=True,
+        null=True,
     )
     provider = models.CharField(max_length=20, null=True, blank=True, default=None)
     img_url = models.URLField(null=True, blank=True, default=None)
