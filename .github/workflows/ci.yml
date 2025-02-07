@@ -38,8 +38,8 @@ jobs:
       IMP_MERCHANT_ID: ${{ secrets.IMP_MERCHANT_ID }}
       POSTGRES_USER: user
       POSTGRES_PASSWORD: 0000
-      LOCAL_POSTGRES_HOST: ${{ secrets.LOCAL_POSTGRES_HOST }}
-      LOCAL_POSTGRES_PORT: 5432
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
       POSTGRES_DB: postgre
       DEBUG: true
       REDIS_URL: redis://localhost:6379/1
