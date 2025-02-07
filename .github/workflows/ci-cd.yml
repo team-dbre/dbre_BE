@@ -1,11 +1,10 @@
-name: Django CI
+name: Django CI/CD
 
 on:
   push:
     branches: [main, develop, feature/*]
   pull_request:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   test:
@@ -103,3 +102,21 @@ jobs:
         mkdir -p staticfiles
         sudo chown -R $USER:$USER staticfiles
         poetry run python manage.py collectstatic --noinput
+
+  deploy:
+    needs: [test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to NCP
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.NCP_HOST }}
+          username: ${{ secrets.NCP_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /root/dbre_BE
+            git pull origin main
+            docker-compose -f docker-compose.prod.yml down
+            docker-compose -f docker-compose.prod.yml up -d --build

@@ -1,4 +1,4 @@
-import os   # CI mypy 통과용
+import os  # CI mypy 통과용
 
 from .base import *
 
