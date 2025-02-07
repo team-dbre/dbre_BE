@@ -7,13 +7,13 @@ from dotenv import load_dotenv
 
 
 # 환경별 .env 파일 로드
-DJANGO_ENV = os.getenv('DJANGO_ENV', 'local')
-env_file = f'.env.{DJANGO_ENV}'
+DJANGO_ENV = os.getenv("DJANGO_ENV", "local")
+env_file = f".env.{DJANGO_ENV}"
 load_dotenv(env_file)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-DEBUG = os.getenv('DEBUG', 'True')
+DEBUG = os.getenv("DEBUG", "True")
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
