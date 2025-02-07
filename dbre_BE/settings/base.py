@@ -6,20 +6,31 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 
-load_dotenv()
+# 환경별 .env 파일 로드
+DJANGO_ENV = os.getenv("DJANGO_ENV", "local")
+env_file = f".env.{DJANGO_ENV}"
+load_dotenv(env_file)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+DEBUG = os.getenv("DEBUG", "True")
+
 SECRET_KEY = os.getenv("SECRET_KEY")
+
 IMP_API_KEY = os.getenv("IMP_API_KEY")
 IMP_API_SECRET = os.getenv("IMP_API_SECRET")
 IMP_MERCHANT_ID = os.getenv("IMP_MERCHANT_ID")
 IMP_STORE_ID = os.getenv("STORE_ID")
 IMP_API_URL = "https://api.portone.io/"
 IMP_CHANNEL_KEY = "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949"
+
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
+TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -107,7 +118,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
-USE_TZ = True
+USE_TZ = False
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -130,6 +141,18 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "email",
     "USER_ID_CLAIM": "email",
+}
+
+# 공통 데이터베이스 설정
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB"),
+        "USER": os.getenv("POSTGRES_USER"),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD"),
+        "HOST": os.getenv("POSTGRES_HOST"),
+        "PORT": os.getenv("POSTGRES_PORT"),
+    }
 }
 
 # redis 캐시 설정

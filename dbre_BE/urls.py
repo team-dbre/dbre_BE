@@ -23,7 +23,9 @@ from user.views import (
     GoogleLoginView,
     LoginView,
     LogoutView,
+    RequestVerificationView,
     UserRegistrationView,
+    VerifyPhoneView,
 )
 
 
@@ -62,6 +64,12 @@ user_patterns = [
     path("check-email/", EmailCheckView.as_view(), name="check-email"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", LogoutView.as_view(), name="logout"),
+    path(
+        "request-verification/",
+        RequestVerificationView.as_view(),
+        name="request-verification",
+    ),
+    path("verify-phone/", VerifyPhoneView.as_view(), name="verify_phone"),
 ]
 
 # 메인 URL 패턴
