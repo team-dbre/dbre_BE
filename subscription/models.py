@@ -1,5 +1,8 @@
 import uuid
 
+from datetime import date, timedelta
+from typing import Any, Optional
+
 from django.db import models
 from gunicorn.config import User
 
@@ -20,6 +23,9 @@ class Subs(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     plan = models.ForeignKey(Plans, on_delete=models.CASCADE)
+    billing_key = models.ForeignKey(
+        "payment.BillingKey", on_delete=models.SET_NULL, null=True, blank=True
+    )
     start_date = models.DateTimeField(auto_now_add=True)
     end_date = models.DateTimeField(null=True, blank=True)
     next_bill_date = models.DateTimeField(null=True, blank=True)
@@ -39,6 +45,18 @@ class Subs(models.Model):
 
     def get_plan_price(self) -> float:
         return self.plan.price
+
+    def calculate_next_bill_date(self) -> Optional[date]:
+        if self.plan.period == "monthly":
+            return self.start_date + timedelta(days=30)
+        elif self.plan.period == "yearly":
+            return self.start_date + timedelta(days=365)
+        return None
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        if not self.next_bill_date:
+            self.next_bill_date = self.calculate_next_bill_date()
+        super().save(*args, **kwargs)
 
 
 class SubHistories(models.Model):

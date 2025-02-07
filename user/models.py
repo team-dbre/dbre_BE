@@ -7,6 +7,7 @@ from django.contrib.auth.models import (
     BaseUserManager,
     PermissionsMixin,
 )
+from django.core.validators import RegexValidator
 from django.db import models
 
 
@@ -31,10 +32,21 @@ class CustomUserManager(BaseUserManager):
 
 
 class CustomUser(AbstractBaseUser, PermissionsMixin):
+    phone_regex = RegexValidator(
+        regex=r"^01([0|1|6|7|8|9]?)-?([0-9]{3,4})-?([0-9]{4})$",
+        message="전화번호는 '010-1234-5678' 형식으로 입력해주세요.",
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=50)
-    phone = models.CharField(max_length=20)
+    phone = models.CharField(
+        validators=[phone_regex],
+        max_length=13,
+        unique=True,
+        blank=True,
+        null=True,
+    )
     provider = models.CharField(max_length=20, null=True, blank=True, default=None)
     img_url = models.URLField(null=True, blank=True, default=None)
     sub_status = models.CharField(

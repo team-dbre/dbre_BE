@@ -2,7 +2,7 @@ from django.contrib.auth import authenticate
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
-from .models import Agreements, CustomUser
+from .models import CustomUser
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -57,3 +57,34 @@ class LoginSerializer(TokenObtainPairSerializer):
 
 class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField(required=True)
+
+
+class GoogleLoginSerializer(serializers.Serializer):
+    code = serializers.CharField(required=True)
+
+
+class GoogleCallbackSerializer(serializers.Serializer):
+    code = serializers.CharField(required=True)
+
+
+class PhoneVerificationRequestSerializer(serializers.Serializer):
+    phone = serializers.CharField(
+        max_length=13, help_text="전화번호 (예: 010-1234-5678)"
+    )
+
+    def validate_phone(self, value: str) -> str:
+        if not value.startswith("010"):
+            raise serializers.ValidationError("올바른 휴대폰 번호 형식이 아닙니다.")
+        return value
+
+
+class PhoneVerificationConfirmSerializer(serializers.Serializer):
+    phone = serializers.CharField(
+        max_length=13, help_text="전화번호 (예: 010-1234-5678)"
+    )
+    code = serializers.CharField(max_length=6, min_length=6, help_text="6자리 인증번호")
+
+    def validate_phone(self, value: str) -> str:
+        if not value.startswith("010"):
+            raise serializers.ValidationError("올바른 휴대폰 번호 형식이 아닙니다.")
+        return value

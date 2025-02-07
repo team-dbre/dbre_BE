@@ -1,7 +1,7 @@
 services:
 #  web:
 #    build: .
-#    env_file: .env
+#    env_file: .env.local
 #    ports:
 #      - "8500:8000"
 #    volumes:
@@ -16,6 +16,8 @@ services:
 #      - POSTGRES_HOST=${POSTGRES_HOST}
 #      - DJANGO_SETTINGS_MODULE=dbre_BE.settings.local
 #      - PYTHONPATH=/app:/app/dbre_BE
+#      - DJANGO_ENV=local
+#      - TZ=Asia/Seoul
 #    depends_on:
 #      db:
 #        condition: service_healthy
@@ -25,10 +27,13 @@ services:
     image: postgres:15-alpine
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
+      - TZ=Asia/Seoul  # 타임존 환경변수 추가
+      - PGTZ=Asia/Seoul  # PostgreSQL 전용 타임존 설정
     ports:
       - "5555:5432"
     healthcheck:
@@ -42,14 +47,19 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6666:6379"
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: always
-#    networks:
-#      - dbre_network
+    networks:
+      - dbre_network
+
+networks:
+  dbre_network:
+    driver: bridge
 
 volumes:
   postgres_data:
-
-#networks:
-#  dbre_network:
-#    driver: bridge
