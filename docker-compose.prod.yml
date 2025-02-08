@@ -5,20 +5,20 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
-      - "443:443"
+#      - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - /etc/letsencrypt:/etc/nginx/ssl
-      - ./staticfiles:/usr/share/nginx/html/staticfiles
+      - /etc/nginx/ssl:/etc/nginx/ssl:ro
+      - ./staticfiles:/app/staticfiles
     depends_on:
       - web
+    networks:
+      - dbre_network
     restart: always
 
   web:
     build: .
     env_file: .env.prod
-    ports:
-      - "8000:8000"
     volumes:
       - ./dbre_BE:/app/dbre_BE
       - ./staticfiles:/app/staticfiles
@@ -29,12 +29,17 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_HOST=db
+      - REDIS_URL=redis://redis:6379/1
       - DJANGO_SETTINGS_MODULE=dbre_BE.settings.prod
       - PYTHONPATH=/app:/app/dbre_BE
       - DJANGO_ENV=prod
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - dbre_network
     restart: always
 
   db:
@@ -45,38 +50,40 @@ services:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=${POSTGRES_DB}
-    ports:
-      - "5555:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 10s
+    networks:
+      - dbre_network
     restart: always
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6666:6379"
-    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     networks:
       - dbre_network
-
+    restart: always
 
   prometheus:
     image: prom/prometheus
     volumes:
       - ./prometheus:/etc/prometheus
-    ports:
-      - "9090:9090"
+    networks:
+      - dbre_network
 
   grafana:
     image: grafana/grafana
-    ports:
-      - "3000:3000"
     depends_on:
       - prometheus
+    networks:
+      - dbre_network
 
 volumes:
   postgres_data:
