@@ -9,12 +9,10 @@ from drf_spectacular.views import (
 from payment.views import (
     GetBillingKeyView,
     PortOneWebhookView,
+    RefundSubscriptionView,
     RequestSubscriptionPaymentView,
     StoreBillingKeyView,
 )
-
-# from payment.views import payment_page, request_payment, complete_payment, get_item, cancel_payment, store_billing_key, \
-#     request_subscription_payment
 from plan.views import get_plan_details
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
@@ -50,6 +48,7 @@ payment_patterns = [
     ),
     path("webhook/", PortOneWebhookView.as_view(), name="portone_webhook"),
     path("billing-key/", StoreBillingKeyView.as_view(), name="store-billing-key"),
+    path("refund/", RefundSubscriptionView.as_view(), name="refund_subscription"),
 ]
 
 

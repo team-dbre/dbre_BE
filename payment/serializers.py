@@ -7,6 +7,7 @@ from rest_framework import serializers
 
 from payment.models import BillingKey
 from plan.models import Plans
+from subscription.models import Subs
 from user.models import CustomUser
 
 
@@ -95,3 +96,41 @@ class WebhookSerializer(serializers.Serializer):
         choices=["paid", "failed", "cancelled"], required=True
     )
     merchant_uid = serializers.CharField(required=True)
+
+
+class RefundSerializer(serializers.Serializer):
+    """환불 요청 데이터 검증"""
+
+    user_id = serializers.UUIDField()
+    plan_id = serializers.IntegerField()
+
+    def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """사용자 및 구독 정보 검증"""
+        user_id = data["user_id"]
+        plan_id = data["plan_id"]
+
+        # 사용자의 구독 정보 조회
+        subscription = Subs.objects.filter(user_id=user_id, plan_id=plan_id).first()
+        if not subscription:
+            raise serializers.ValidationError(
+                {"user_id": "사용자의 구독 정보가 없습니다."}
+            )
+
+        # 구독이 이미 취소된 경우
+        if not subscription.auto_renew:
+            raise serializers.ValidationError(
+                {"subscription": "이미 취소된 구독입니다."}
+            )
+
+        data["subscription"] = subscription
+        return data
+
+
+class RefundResponseSerializer(serializers.Serializer):
+    """환불 성공/실패 응답 처리"""
+
+    message = serializers.CharField(default="")
+    refund_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, required=False
+    )
+    error = serializers.CharField(required=False)
