@@ -11,23 +11,31 @@ from django.shortcuts import get_object_or_404, render
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from payment.models import BillingKey
 from payment.services.web_hook_service import WebhookService
+from subscription.models import Subs
 from user.models import CustomUser
 
 from .serializers import (
     BillingKeySerializer,
     GetBillingKeySerializer,
+    PauseSubscriptionSerializer,
     RefundResponseSerializer,
     RefundSerializer,
+    ResumeSubscriptionSerializer,
     SubscriptionPaymentSerializer,
     WebhookSerializer,
 )
-from .services.payment_service import RefundService, SubscriptionPaymentService
+from .services.payment_service import (
+    RefundService,
+    SubscriptionPaymentService,
+    SubscriptionService,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -41,6 +49,8 @@ def subscription_payment_page(request: HttpRequest) -> HttpResponse:
 
 class StoreBillingKeyView(APIView):
     """포트원 Billing Key 저장 API"""
+
+    # permission_classes = [IsAuthenticated]
 
     serializer_class = BillingKeySerializer
 
@@ -76,6 +86,8 @@ class StoreBillingKeyView(APIView):
 
 class RequestSubscriptionPaymentView(APIView):
     """포트원 SDK를 사용한 정기 결제 API"""
+
+    # permission_classes = [IsAuthenticated]
 
     serializer_class = SubscriptionPaymentSerializer
 
@@ -128,6 +140,8 @@ class RequestSubscriptionPaymentView(APIView):
 
 class GetBillingKeyView(APIView):
     """특정 사용자의 Billing Key 조회 API"""
+
+    # permission_classes = [IsAuthenticated]
 
     serializer_class = GetBillingKeySerializer
 
@@ -202,6 +216,8 @@ class PortOneWebhookView(APIView):
 class RefundSubscriptionView(APIView):
     """포트원 API를 이용한 결제 취소 및 환불 API"""
 
+    # permission_classes = [IsAuthenticated]
+
     serializer_class = RefundSerializer
 
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
@@ -230,5 +246,80 @@ class RefundSubscriptionView(APIView):
 
                 return Response(response_serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"🚨 환불 처리 중 오류 발생: {e}")
+            logger.error(f"환불 처리 중 오류 발생: {e}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PauseSubscriptionView(APIView):
+    """구독 중지 API"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = PauseSubscriptionSerializer
+
+    def post(self, request: Request) -> Response:
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        plan_id = request.data.get("plan_id")
+
+        if not plan_id:
+            return Response("error", status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subscription = Subs.objects.get(user=user, plan_id=plan_id)
+        except Subs.DoesNotExist:
+            return Response(
+                {"error": "해당 유저의 구독 정보를 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = SubscriptionService(subscription)
+        result = service.pause_subscription()
+
+        return Response(
+            result,
+            status=(
+                status.HTTP_200_OK
+                if "message" in result
+                else status.HTTP_400_BAD_REQUEST
+            ),
+        )
+
+
+class ResumeSubscriptionView(APIView):
+    """구독 재개 API"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = ResumeSubscriptionSerializer
+
+    def post(self, request: Request) -> Response:
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        plan_id = request.data.get("plan_id")
+        if not plan_id:
+            return Response("error", status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            subscription = Subs.objects.get(user=user, plan_id=plan_id)
+        except Subs.DoesNotExist:
+            return Response(
+                {"error": "해당 유저의 구독 정보를 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        service = SubscriptionService(subscription)
+        result = service.resume_subscription()
+
+        return Response(
+            result,
+            status=(
+                status.HTTP_200_OK
+                if "message" in result
+                else status.HTTP_400_BAD_REQUEST
+            ),
+        )
