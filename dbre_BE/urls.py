@@ -24,6 +24,7 @@ from user.views import (
     LoginView,
     LogoutView,
     RequestVerificationView,
+    SavePhoneNumberView,
     UserRegistrationView,
     VerifyPhoneView,
 )
@@ -73,6 +74,7 @@ user_patterns = [
         name="request-verification",
     ),
     path("verify-phone/", VerifyPhoneView.as_view(), name="verify_phone"),
+    path("g-phone/", SavePhoneNumberView.as_view(), name="g-phone"),
 ]
 
 # 메인 URL 패턴

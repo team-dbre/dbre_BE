@@ -28,22 +28,28 @@ from twilio.rest import Client
 from term.models import Terms
 from user.models import Agreements, CustomUser
 from user.serializers import (
+    AuthUrlResponseSerializer,
     EmailCheckSerializer,
-    GoogleCallbackSerializer,
-    GoogleLoginSerializer,
     LoginSerializer,
     LogoutSerializer,
+    PhoneNumberSerializer,
     PhoneVerificationConfirmSerializer,
     PhoneVerificationRequestSerializer,
+    TokenResponseSerializer,
     UserRegistrationSerializer,
 )
-from user.utils import get_google_access_token, get_google_user_info
+from user.utils import (
+    format_phone_for_twilio,
+    get_google_access_token,
+    get_google_user_info,
+    normalize_phone_number,
+)
 
 
 @extend_schema_view(
     post=extend_schema(
         tags=["user"],
-        summary="User Registration",
+        summary="회원가입",
         description="Register a new user with terms agreements.",
         request=UserRegistrationSerializer,
         responses={201: UserRegistrationSerializer},
@@ -100,8 +106,8 @@ class UserRegistrationView(CreateAPIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["user"],
-        summary="Check Email Availability",
-        description="Check if the provided email is already registered.",
+        summary="Email 사용 가능 여부",
+        description="기존에 존재하는 이메일인지 확인하여 사용가능 여부를 반환합니다.",
         request=EmailCheckSerializer,
         responses={
             200: {
@@ -217,11 +223,10 @@ class LogoutView(GenericAPIView):
             )
 
 
-@extend_schema(tags=["user"])
 class GoogleLoginView(GenericAPIView):
-    serializer_class = GoogleLoginSerializer
     renderer_classes = [JSONRenderer]
 
+    @extend_schema(tags=["user"], responses={200: AuthUrlResponseSerializer})
     def get(self, request: Request) -> Response:
         params = {
             "client_id": settings.GOOGLE_CLIENT_ID,
@@ -235,17 +240,41 @@ class GoogleLoginView(GenericAPIView):
         auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
         return Response({"auth_url": auth_url})
 
-    def post(self, request: Request) -> Response:
+
+class GoogleCallbackView(GenericAPIView):
+    renderer_classes = [JSONRenderer]
+
+    @extend_schema(
+        tags=["user"],
+        responses={
+            200: OpenApiResponse(
+                response=TokenResponseSerializer, description="구글 콜백 처리"
+            )
+        },
+    )
+    def get(self, request: Request) -> Response:
+        code = request.GET.get("code")
+        if not code:
+            return Response(
+                {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
         try:
-            code = request.data.get("code")
             access_token = get_google_access_token(code)
-            # access_token이 None일 수 있는 부분 처리
             if access_token is None:
                 raise ValueError("Failed to get access token")
+
             user_info = get_google_user_info(access_token)
 
             try:
                 user = CustomUser.objects.get(email=user_info["email"])
+                if user.provider != "google":
+                    return Response(
+                        {
+                            "message": "이미 일반 회원으로 가입된 이메일입니다. 일반 로그인을 이용해주세요."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             except CustomUser.DoesNotExist:
                 user = CustomUser.objects.create_user(
                     email=user_info["email"],
@@ -280,6 +309,7 @@ class GoogleLoginView(GenericAPIView):
                     "message": "구글 로그인이 완료되었습니다.",
                     "access_token": access_token,
                     "refresh_token": refresh_token,
+                    "phone": bool(user.phone),
                 },
                 status=status.HTTP_200_OK,
             )
@@ -289,28 +319,6 @@ class GoogleLoginView(GenericAPIView):
                 {"message": "구글 로그인에 실패했습니다.", "detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-
-class GoogleCallbackView(GenericAPIView):
-    serializer_class = GoogleCallbackSerializer
-    renderer_classes = [JSONRenderer]
-
-    @extend_schema(
-        tags=["user"],
-        responses={
-            200: OpenApiResponse(
-                response=GoogleCallbackSerializer, description="구글 콜백 처리"
-            )
-        },
-    )
-    def get(self, request: Request) -> Response:
-        code = request.GET.get("code")
-        if not code:
-            return Response(
-                {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response({"code": code}, status=status.HTTP_200_OK)
 
 
 class RequestVerificationView(APIView):
@@ -344,8 +352,8 @@ class RequestVerificationView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         phone = serializer.validated_data["phone"]
-        formatted_phone = (
-            "+82" + phone.replace("-", "")[1:]
+        formatted_phone = format_phone_for_twilio(
+            phone
         )  # 010-xxxx-xxxx를 +8210xxxxxxxx로 변환
         verification_code = "".join([str(random.randint(0, 9)) for _ in range(6)])
 
@@ -353,7 +361,7 @@ class RequestVerificationView(APIView):
 
         try:
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            message = client.messages.create(
+            client.messages.create(
                 body=f"인증번호: {verification_code}",
                 from_=settings.TWILIO_PHONE_NUMBER,
                 to=formatted_phone,
@@ -415,3 +423,54 @@ class VerifyPhoneView(APIView):
         cache.set(f"phone_verified:{phone}", "true", timeout=86400)
 
         return Response({"message": "인증이 완료되었습니다."})
+
+
+class SavePhoneNumberView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PhoneNumberSerializer
+
+    @extend_schema(
+        tags=["user"],
+        summary="구글 소셜 로그인 유저 인증된 전화번호 저장",
+        request=PhoneNumberSerializer,
+        responses={200: TokenResponseSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            phone = normalize_phone_number(serializer.validated_data["phone"])
+
+            # 전화번호 중복 검사
+            if CustomUser.objects.filter(phone=phone).exists():
+                # 현재 사용자의 계정 삭제
+                request.user.delete()
+
+                # Redis에 저장된 토큰 삭제
+                cache.delete(f"user_token:{request.user.id}")
+
+                return Response(
+                    {
+                        "error": "이미 사용 중인 전화번호입니다. 새로 생성된 계정이 삭제되었습니다.",
+                        "action": "account_deleted",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 인증된 전화번호인지 확인
+            if not cache.get(f"phone_verified:{phone}"):
+                return Response(
+                    {"error": "인증되지 않은 전화번호입니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # 사용자 전화번호 업데이트
+            request.user.phone = phone
+            request.user.save()
+
+            return Response({"message": "전화번호가 저장되었습니다."})
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
