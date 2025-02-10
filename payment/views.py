@@ -10,6 +10,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -47,6 +48,7 @@ def subscription_payment_page(request: HttpRequest) -> HttpResponse:
     return render(request, "subscription_payment.html")
 
 
+@extend_schema(tags=["payment"])
 class StoreBillingKeyView(APIView):
     """포트원 Billing Key 저장 API"""
 
@@ -84,6 +86,7 @@ class StoreBillingKeyView(APIView):
             )
 
 
+@extend_schema(tags=["payment"])
 class RequestSubscriptionPaymentView(APIView):
     """포트원 SDK를 사용한 정기 결제 API"""
 
@@ -138,6 +141,7 @@ class RequestSubscriptionPaymentView(APIView):
             )
 
 
+@extend_schema(tags=["payment"])
 class GetBillingKeyView(APIView):
     """특정 사용자의 Billing Key 조회 API"""
 
@@ -178,6 +182,7 @@ class GetBillingKeyView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@extend_schema(tags=["payment"])
 @method_decorator(csrf_exempt, name="dispatch")
 class PortOneWebhookView(APIView):
     """포트원 결제 웹훅(Webhook) API"""
@@ -213,6 +218,7 @@ class PortOneWebhookView(APIView):
             )
 
 
+@extend_schema(tags=["payment"])
 class RefundSubscriptionView(APIView):
     """포트원 API를 이용한 결제 취소 및 환불 API"""
 
@@ -250,6 +256,7 @@ class RefundSubscriptionView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(tags=["payment"])
 class PauseSubscriptionView(APIView):
     """구독 중지 API"""
 
@@ -288,6 +295,7 @@ class PauseSubscriptionView(APIView):
         )
 
 
+@extend_schema(tags=["payment"])
 class ResumeSubscriptionView(APIView):
     """구독 재개 API"""
 

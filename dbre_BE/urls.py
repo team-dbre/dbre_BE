@@ -5,6 +5,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework.routers import DefaultRouter
 
 from payment.views import (
     GetBillingKeyView,
@@ -15,7 +16,7 @@ from payment.views import (
     ResumeSubscriptionView,
     StoreBillingKeyView,
 )
-from plan.views import get_plan_details
+from plan.views import PlanActivateView, PlanDetailView, PlanListCreateView
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
     EmailCheckView,
@@ -58,7 +59,10 @@ payment_patterns = [
 
 # Plan 관련 URL 패턴
 plan_patterns = [
-    path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
+    # path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
+    path("", PlanListCreateView.as_view(), name="plan-list-create"),
+    path("<int:plan_id>/", PlanDetailView.as_view(), name="plan-detail"),
+    path("<int:plan_id>/active/", PlanActivateView.as_view(), name="term-detail"),
 ]
 
 # User 관련 URL 패턴
