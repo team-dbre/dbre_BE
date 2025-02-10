@@ -5,6 +5,7 @@ import uuid
 from typing import Any
 
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils.decorators import method_decorator
@@ -21,10 +22,12 @@ from user.models import CustomUser
 from .serializers import (
     BillingKeySerializer,
     GetBillingKeySerializer,
+    RefundResponseSerializer,
+    RefundSerializer,
     SubscriptionPaymentSerializer,
     WebhookSerializer,
 )
-from .services.payment_service import SubscriptionPaymentService
+from .services.payment_service import RefundService, SubscriptionPaymentService
 
 
 logger = logging.getLogger(__name__)
@@ -49,10 +52,11 @@ class StoreBillingKeyView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            billing_key = serializer.save()
-            logger.info(
-                f"[StoreBillingKey] Billing Key 저장 성공: {billing_key.billing_key}"
-            )
+            with transaction.atomic():
+                billing_key = serializer.save()
+                logger.info(
+                    f"[StoreBillingKey] Billing Key 저장 성공: {billing_key.billing_key}"
+                )
 
             return Response(
                 {
@@ -90,10 +94,15 @@ class RequestSubscriptionPaymentView(APIView):
         )
 
         try:
-            sub = service.create_subscription()
-            payment_id_response = service.process_payment(sub)
-            payment = service.save_payment(sub, payment_id_response)
-            scheduled_payment_id = service.schedule_next_payment(sub)
+            with transaction.atomic():
+                sub = service.create_subscription()
+                short_payment_id, billing_key_payment_summary = service.process_payment(
+                    sub
+                )
+                payment = service.save_payment(
+                    sub, short_payment_id, billing_key_payment_summary
+                )
+                scheduled_payment_id = service.schedule_next_payment(sub)
 
             return Response(
                 {
@@ -163,7 +172,7 @@ class PortOneWebhookView(APIView):
 
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
-            # ✅ JSON 데이터 파싱 및 검증
+            # JSON 데이터 파싱 및 검증
             data = json.loads(request.body.decode("utf-8"))
             serializer = self.serializer_class(data=data)
 
@@ -188,3 +197,38 @@ class PortOneWebhookView(APIView):
                 {"error": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class RefundSubscriptionView(APIView):
+    """포트원 API를 이용한 결제 취소 및 환불 API"""
+
+    serializer_class = RefundSerializer
+
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """환불 요청 처리"""
+        serializer = self.serializer_class(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+        user = validated_data["subscription"].user
+        subscription = validated_data["subscription"]
+
+        try:
+            with transaction.atomic():
+                # 환불 서비스 실행
+                service = RefundService(user, subscription)
+                refund_response = service.process_refund()
+
+                # 응답 시리얼라이저 적용
+                response_serializer = RefundResponseSerializer(refund_response)
+                if "error" in refund_response:
+                    return Response(
+                        response_serializer.data, status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                return Response(response_serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"🚨 환불 처리 중 오류 발생: {e}")
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
