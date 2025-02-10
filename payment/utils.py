@@ -1,15 +1,25 @@
 import json
 import logging
+import uuid
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 
+from django.utils.timezone import now
+from portone_server_sdk._generated.common.billing_key_payment_input import (
+    BillingKeyPaymentInput,
+)
+from portone_server_sdk._generated.common.customer_input import CustomerInput
+from portone_server_sdk._generated.common.customer_name_input import CustomerNameInput
+from portone_server_sdk._generated.common.payment_amount_input import PaymentAmountInput
 from portone_server_sdk._generated.errors import PgProviderError
 from portone_server_sdk._generated.payment.payment_schedule.payment_schedule_filter_input import (
     PaymentScheduleFilterInput,
 )
+from rest_framework import response
 
 from payment import portone_client2
+from user.models import CustomUser
 
 
 logger = logging.getLogger(__name__)
@@ -131,3 +141,87 @@ def check_billing_key_status(billing_key: str) -> Optional[Any]:
     except PgProviderError as e:
         logger.warning(f" P759 발생 - 빌링 키가 이미 삭제되었을 가능성 있음: {e}")
         return None
+
+
+def cancel_scheduled_payments(billing_key: str, plan_id: int) -> bool:
+    """포트원의 예약된 결제 취소"""
+    try:
+        scheduled_payments = fetch_scheduled_payments(billing_key, plan_id)
+
+        if scheduled_payments:
+            logger.info(
+                f"정기 결제 스케줄 발견 (취소 대상 플랜 ID: {plan_id}): {scheduled_payments}, 스케줄 취소 진행."
+            )
+
+            # 해당하는 스케줄만 취소
+            portone_client2.payment_schedule.revoke_payment_schedules(
+                billing_key=billing_key, schedule_ids=scheduled_payments
+            )
+            logger.info(f"특정 플랜 ({plan_id})에 대한 정기 결제 스케줄 취소 완료.")
+            return True
+        return False
+
+    except Exception as e:
+        logger.error(f"포트원 예약 결제 취소 실패: {e}")
+        return False
+
+
+def create_scheduled_payment(
+    billing_key: str, plan_id: int, price: int, user: CustomUser
+) -> str:
+    """포트원의 예약 결제 생성 (구독 재개 시)"""
+
+    # 구독 정보 가져오기 (특정 플랜 기준으로 조회)
+    subscription = user.subs_set.filter(plan_id=plan_id).first()
+    if not subscription:
+        raise ValueError("해당 유저의 구독 정보를 찾을 수 없습니다.")
+
+    start_date = now()  # 구독 재개일을 새로운 구독 시작일로 설정
+    remaining_days = (
+        subscription.remaining_bill_date.days if subscription.remaining_bill_date else 0
+    )
+
+    if remaining_days <= 0:
+        raise ValueError("남은 구독 기간이 없습니다. 새로 구독해야 합니다.")
+
+    end_date = start_date + timedelta(days=remaining_days)
+    next_billing_date = end_date  # 다음 결제일을 종료일로 설정
+
+    scheduled_payment_id = f"SUBS{uuid.uuid4().hex[:18]}"
+
+    customer_info = CustomerInput(
+        id=str(user.id),
+        email=user.email or "",
+        name=CustomerNameInput(full=user.name or "Unnamed User"),
+    )
+
+    try:
+        schedule_response = portone_client2.payment_schedule.create_payment_schedule(
+            payment_id=scheduled_payment_id,
+            payment=BillingKeyPaymentInput(
+                billing_key=billing_key.strip(),
+                order_name=f"Plan-{plan_id}",
+                amount=PaymentAmountInput(total=int(price)),
+                currency="KRW",
+                customer=customer_info,
+            ),
+            time_to_pay=next_billing_date.isoformat(),
+        )
+
+        logger.info(f"포트원 예약 결제 응답: {schedule_response}")
+
+        # schedule_id를 올바른 방식으로 가져오기
+        if hasattr(schedule_response, "schedule") and hasattr(
+            schedule_response.schedule, "id"
+        ):
+            scheduled_id = schedule_response.schedule.id
+            logger.info(f" 포트원 예약 결제 생성 완료 - 스케줄 ID: {scheduled_id}")
+        else:
+            logger.warning(f" 포트원 응답에 schedule_id 없음: {schedule_response}")
+            scheduled_id = ""
+
+        return scheduled_id
+
+    except Exception as e:
+        logger.error(f" 포트원 예약 결제 생성 실패: {e}")
+        return ""
