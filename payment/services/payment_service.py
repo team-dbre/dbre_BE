@@ -20,7 +20,12 @@ from portone_server_sdk._generated.payment.billing_key_payment_summary import (
 
 from payment import portone_client2
 from payment.models import BillingKey, Pays
-from payment.utils import delete_billing_key_with_retry, fetch_scheduled_payments
+from payment.utils import (
+    cancel_scheduled_payments,
+    create_scheduled_payment,
+    delete_billing_key_with_retry,
+    fetch_scheduled_payments,
+)
 from subscription.models import SubHistories, Subs
 from user.models import CustomUser
 
@@ -446,3 +451,119 @@ class RefundService:
                 }
         logger.warning(" 예상치 못한 실행 경로 발견: process_refund에서 반환되지 않음")
         return {"error": "알 수 없는 오류가 발생했습니다. 관리자에게 문의하세요."}
+
+
+class SubscriptionService:
+    """구독 관련 서비스"""
+
+    def __init__(self, subscription: Subs):
+        self.subscription = subscription
+
+    def pause_subscription(self) -> Dict[str, Any]:
+        """구독 중지 (포트원의 예약 결제도 중지)"""
+        try:
+            if self.subscription.billing_key:
+                billing_key = self.subscription.billing_key.billing_key
+                plan_id = self.subscription.plan.id
+
+                # 포트원 예약 결제 조회
+                scheduled_payments = fetch_scheduled_payments(billing_key, plan_id)
+                if scheduled_payments:
+                    logger.info(
+                        f"예약된 결제 취소 진행 - 스케줄 ID: {scheduled_payments}"
+                    )
+
+                    #  포트원의 예약 결제 취소
+                    cancel_scheduled_payments(billing_key, plan_id)
+
+            #  현재 남은 기간 저장
+            if self.subscription.end_date:
+                remaining_time = self.subscription.end_date - now()
+                self.subscription.remaining_bill_date = max(
+                    timedelta(seconds=0), remaining_time
+                )  # 음수 방지
+            else:
+                self.subscription.remaining_bill_date = timedelta(seconds=0)
+
+            #  구독 중지 처리
+            self.subscription.user.sub_status = "paused"
+            self.subscription.end_date = None  # 중지 시 만료일 초기화
+            self.subscription.auto_renew = False  # 자동 갱신 비활성화
+            self.subscription.user.save(update_fields=["sub_status"])
+            self.subscription.save(
+                update_fields=["end_date", "auto_renew", "remaining_bill_date"]
+            )
+
+            logger.info(
+                f"구독 중지 완료 - 남은 기간 저장: {self.subscription.remaining_bill_date}"
+            )
+            return {
+                "message": "구독이 중지되었습니다.",
+                "remaining_days": self.subscription.remaining_bill_date.days,
+            }
+
+        except Exception as e:
+            logger.error(f"구독 중지 실패: {e}")
+            return {"error": "구독 중지 중 오류 발생"}
+
+    def resume_subscription(self) -> Dict[str, Any]:
+        """구독 재개 (남은 기간 반영 및 포트원 예약 결제 갱신)"""
+        try:
+            if self.subscription.user.sub_status != "paused":
+                return {"error": "구독이 중지 상태가 아닙니다."}
+
+            # 기존 저장된 남은 기간 확인 (하루씩 줄어드는 문제 해결)
+            remaining_time = (
+                self.subscription.remaining_bill_date
+                if self.subscription.remaining_bill_date
+                else timedelta(seconds=0)
+            )
+            if remaining_time.total_seconds() <= 0:
+                return {"error": "남은 기간이 없습니다. 새롭게 구독해야 합니다."}
+
+            start_date = now()  # 구독 재개 시점을 새로운 시작일로 설정
+            new_end_date = (
+                start_date + remaining_time
+            )  # 기존 남은 기간을 유지하여 종료일 설정
+
+            # 구독 상태 변경 및 새로운 종료일 저장
+            self.subscription.user.sub_status = "active"
+            self.subscription.start_date = start_date  # 구독 재개일 갱신
+            self.subscription.end_date = (
+                new_end_date  # 기존 남은 기간을 반영한 종료일 설정
+            )
+            self.subscription.next_bill_date = (
+                new_end_date  # 다음 결제일을 종료일로 설정
+            )
+            self.subscription.auto_renew = True  # 자동 갱신 활성화
+            self.subscription.remaining_bill_date = new_end_date - start_date
+            self.subscription.user.save(update_fields=["sub_status"])
+            self.subscription.save(
+                update_fields=["start_date", "end_date", "next_bill_date", "auto_renew"]
+            )
+
+            # 포트원 예약 결제 다시 생성
+            if (
+                self.subscription.billing_key is None
+                or self.subscription.billing_key.billing_key is None
+            ):
+                raise ValueError("Billing Key가 존재하지 않습니다.")
+            billing_key = self.subscription.billing_key.billing_key
+            plan_id = self.subscription.plan.id
+            plan_price = self.subscription.plan.price
+
+            scheduled_payment_id = create_scheduled_payment(
+                billing_key=billing_key,
+                plan_id=plan_id,
+                price=plan_price,
+                user=self.subscription.user,
+            )
+
+            logger.info(
+                f" 구독 재개 및 포트원 예약 결제 생성 완료: {scheduled_payment_id}"
+            )
+            return {"message": "구독이 재개되었습니다.", "new_end_date": new_end_date}
+
+        except Exception as e:
+            logger.error(f" 구독 재개 실패: {e}")
+            return {"error": "구독 재개 중 오류 발생"}
