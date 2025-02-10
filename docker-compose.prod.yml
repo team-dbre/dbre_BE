@@ -5,16 +5,26 @@ services:
       dockerfile: Dockerfile
     ports:
       - "80:80"
-#      - "443:443"
+      - "443:443"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - /etc/nginx/ssl:/etc/nginx/ssl:ro
+      - ./certbot/conf:/etc/letsencrypt  # 인증서 볼륨
+      - ./certbot/www:/var/www/certbot   # 인증서 발급용 웹루트
       - ./staticfiles:/app/staticfiles
     depends_on:
       - web
     networks:
       - dbre_network
     restart: always
+
+  # Certbot 서비스 추가
+  certbot:
+    image: certbot/certbot
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    depends_on:
+      - nginx
 
   web:
     build: .
