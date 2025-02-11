@@ -23,3 +23,35 @@ def get_google_user_info(access_token: str) -> Dict[str, Any]:
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(user_info_url, headers=headers)
     return cast(Dict[str, Any], response.json())
+
+
+def normalize_phone_number(phone: str) -> str:
+    """전화번호를 010-xxxx-xxxx 형식으로 정규화"""
+    # +82 제거 및 숫자만 추출
+    cleaned = "".join(filter(str.isdigit, phone))
+
+    # 국가 코드(82) 제거
+    if cleaned.startswith("82"):
+        cleaned = cleaned[2:]
+
+    # 앞의 0이 없는 경우 추가
+    if not cleaned.startswith("0"):
+        cleaned = "0" + cleaned
+
+    # xxx-xxxx-xxxx 형식으로 변환
+    return f"{cleaned[:3]}-{cleaned[3:7]}-{cleaned[7:]}"
+
+
+def format_phone_for_twilio(phone: str) -> str:
+    """전화번호를 Twilio 형식(+82xxxxxxxxxx)으로 변환"""
+    cleaned = "".join(filter(str.isdigit, phone))
+
+    # 이미 국가 코드가 있는 경우
+    if cleaned.startswith("82"):
+        return f"+{cleaned}"
+
+    # 0으로 시작하는 경우 국가 코드로 변환
+    if cleaned.startswith("0"):
+        return f"+82{cleaned[1:]}"
+
+    return f"+82{cleaned}"

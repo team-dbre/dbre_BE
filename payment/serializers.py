@@ -103,6 +103,12 @@ class RefundSerializer(serializers.Serializer):
     """환불 요청 데이터 검증"""
 
     plan_id = serializers.IntegerField()
+    cancelled_reason = serializers.ChoiceField(
+        choices=Subs.cancelled_reason_choices, required=True
+    )
+    other_reason = serializers.CharField(
+        required=False, allow_blank=True, max_length=255
+    )
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """사용자 및 구독 정보 검증"""

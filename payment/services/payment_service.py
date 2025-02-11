@@ -218,9 +218,17 @@ class SubscriptionPaymentService:
 class RefundService:
     """포트원 환불 처리 서비스"""
 
-    def __init__(self, user: CustomUser, subscription: Subs) -> None:
+    def __init__(
+        self,
+        user: CustomUser,
+        subscription: Subs,
+        cancel_reason: str,
+        other_reason: str,
+    ) -> None:
         self.user = user
         self.subscription = subscription
+        self.cancel_reason = cancel_reason
+        self.other_reason = other_reason
 
     def get_cancellable_amount(self, payment: Pays) -> float:
         """포트원에서 현재 결제 건의 취소 가능 금액 조회"""
@@ -406,7 +414,11 @@ class RefundService:
                 # 환불 성공 후 빌링 키 삭제 및 구독 비활성화
                 if refund_response["success"]:
                     self.subscription.auto_renew = False
-                    self.subscription.save(update_fields=["auto_renew"])
+                    self.subscription.cancelled_reason = self.cancel_reason
+                    self.subscription.other_reason = self.other_reason
+                    self.subscription.save(
+                        update_fields=["auto_renew", "cancelled_reason", "other_reason"]
+                    )
 
                     self.subscription.user.sub_status = "cancelled"
                     self.subscription.user.save(update_fields=["sub_status"])
@@ -438,6 +450,8 @@ class RefundService:
                     return {
                         "message": "환불 및 빌링 해지 성공",
                         "refund_amount": refund_amount,
+                        "cancelled_reason": self.cancel_reason,
+                        "other_reason": self.other_reason,
                     }
 
             except ValueError as e:

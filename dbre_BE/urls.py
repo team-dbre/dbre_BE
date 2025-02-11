@@ -5,6 +5,7 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from rest_framework.routers import DefaultRouter
 
 from payment.views import (
     GetBillingKeyView,
@@ -15,7 +16,12 @@ from payment.views import (
     ResumeSubscriptionView,
     StoreBillingKeyView,
 )
-from plan.views import get_plan_details
+from plan.views import (
+    PlanActivateView,
+    PlanDeleteView,
+    PlanDetailView,
+    PlanListCreateView,
+)
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
     EmailCheckView,
@@ -24,6 +30,7 @@ from user.views import (
     LoginView,
     LogoutView,
     RequestVerificationView,
+    SavePhoneNumberView,
     UserRegistrationView,
     VerifyPhoneView,
 )
@@ -58,7 +65,11 @@ payment_patterns = [
 
 # Plan 관련 URL 패턴
 plan_patterns = [
-    path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
+    # path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
+    path("", PlanListCreateView.as_view(), name="plan-list-create"),
+    path("<int:plan_id>/", PlanDetailView.as_view(), name="plan-detail"),
+    path("<int:plan_id>/delete/", PlanDeleteView.as_view(), name="plan-delete"),
+    path("<int:plan_id>/active/", PlanActivateView.as_view(), name="term-detail"),
 ]
 
 # User 관련 URL 패턴
@@ -73,6 +84,7 @@ user_patterns = [
         name="request-verification",
     ),
     path("verify-phone/", VerifyPhoneView.as_view(), name="verify_phone"),
+    path("g-phone/", SavePhoneNumberView.as_view(), name="g-phone"),
 ]
 
 # 메인 URL 패턴
