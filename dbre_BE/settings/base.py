@@ -23,6 +23,7 @@ IMP_MERCHANT_ID = os.getenv("IMP_MERCHANT_ID")
 IMP_STORE_ID = os.getenv("STORE_ID")
 IMP_API_URL = "https://api.portone.io/"
 IMP_CHANNEL_KEY = "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949"
+IMP_WEBHOOK_SECRETE = os.getenv("WEB_HOOK_SECRET")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -184,6 +185,8 @@ SPECTACULAR_SETTINGS = {
     "TAGS": [
         {"name": "user", "description": "User management operations"},
         {"name": "payment", "description": "Payment related operations"},
+        {"name": "subscription", "description": "Subscription related operations"},
+        {"name": "plan", "description": "Plan related operations"},
         {"name": "term", "description": "Term related operations"},
     ],
     "OPERATIONS_SORTER": None,
