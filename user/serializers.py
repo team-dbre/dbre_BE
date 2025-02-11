@@ -70,17 +70,23 @@ class LogoutSerializer(serializers.Serializer):
     refresh_token = serializers.CharField(required=True)
 
 
-# GET 요청용 시리얼라이저 (응답 스키마)
 class AuthUrlResponseSerializer(serializers.Serializer):
     auth_url = serializers.URLField()
 
 
-# POST 요청용 시리얼라이저
+class GoogleLoginRequestSerializer(serializers.Serializer):
+    code = serializers.CharField(required=True, help_text="구글 인증 코드")
+
+
 class TokenResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()
     phone = serializers.BooleanField()
+
+
+class GoogleCallbackResponseSerializer(serializers.Serializer):
+    code = serializers.CharField(help_text="구글 인증 코드")
 
 
 class PhoneVerificationRequestSerializer(serializers.Serializer):

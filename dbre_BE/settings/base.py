@@ -28,6 +28,8 @@ IMP_WEBHOOK_SECRETE = os.getenv("WEB_HOOK_SECRET")
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
+FLOCAL_GOOGLE_REDIRECT_URI = os.getenv("FLOCAL_GOOGLE_REDIRECT_URI")
+FPROD_GOOGLE_REDIRECT_URI = os.getenv("FPROD_GOOGLE_REDIRECT_URI")
 
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
@@ -235,7 +237,7 @@ LOGGING = {
     },
     "handlers": {
         "console": {
-            "level": "DEBUG",
+            "level": "INFO",
             "class": "logging.StreamHandler",
             "formatter": "verbose",
         },
