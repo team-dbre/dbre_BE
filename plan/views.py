@@ -24,7 +24,7 @@ from plan.serializers import PlanSerializer
 #             {"error": "요금제 정보를 불러올 수 없습니다.", "details": str(e)},
 #             status=500,
 #         )
-@extend_schema(tags=["Plan"])
+@extend_schema(tags=["plan"])
 class PlanListCreateView(APIView):
     """구독 플랜 목록 조회 및 생성"""
 
@@ -49,7 +49,7 @@ class PlanListCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(tags=["Plan"])
+@extend_schema(tags=["plan"])
 class PlanDetailView(APIView):
     """구독 플랜 개별 조회, 수정, 삭제"""
 
@@ -81,7 +81,7 @@ class PlanDetailView(APIView):
         )
 
 
-@extend_schema(tags=["Plan"])
+@extend_schema(tags=["plan"])
 class PlanActivateView(APIView):
     """
     비활성화된 플랜을 다시 활성화
@@ -100,7 +100,7 @@ class PlanActivateView(APIView):
         )
 
 
-@extend_schema(tags=["Plan"])
+@extend_schema(tags=["plan"])
 class PlanDeleteView(APIView):
     """
     플랜 완전 삭제

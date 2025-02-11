@@ -10,7 +10,7 @@ from subscription.models import SubHistories, Subs
 from subscription.serializers import SubHistorySerializer, SubsSerializer
 
 
-@extend_schema(tags=["Subscription"])
+@extend_schema(tags=["subscription"])
 class SubscriptionView(APIView):
     """
     구독 정보 조회
@@ -41,7 +41,6 @@ class SubscriptionView(APIView):
         return Response(serializer.data)
 
 
-@extend_schema(tags=["Subscription"])
 class SusHistoryView(APIView):
     """
     구독 이력 조회
@@ -50,7 +49,7 @@ class SusHistoryView(APIView):
     permission_classes = (IsAuthenticated,)
 
     @extend_schema(
-        tags=["Subscription"],
+        tags=["subscription"],
         responses={
             200: SubHistorySerializer(many=True),
         },
