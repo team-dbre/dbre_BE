@@ -236,11 +236,15 @@ class RefundSubscriptionView(APIView):
         validated_data = serializer.validated_data
         user = validated_data["subscription"].user
         subscription = validated_data["subscription"]
+        cancelled_reason = validated_data.get("cancelled_reason", "")
+        other_reason = validated_data.get("other_reason", "")
 
         try:
             with transaction.atomic():
                 # 환불 서비스 실행
-                service = RefundService(user, subscription)
+                service = RefundService(
+                    user, subscription, cancelled_reason, other_reason
+                )
                 refund_response = service.process_refund()
 
                 # 응답 시리얼라이저 적용
