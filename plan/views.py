@@ -98,3 +98,18 @@ class PlanActivateView(APIView):
         return Response(
             {"message": "플랜이 활성화되었습니다."}, status=status.HTTP_200_OK
         )
+
+
+@extend_schema(tags=["Plan"])
+class PlanDeleteView(APIView):
+    """
+    플랜 완전 삭제
+    """
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
+    def delete(self, request: PlanSerializer, plan_id: int) -> Response:
+        plan = get_object_or_404(Plans, id=plan_id)
+        plan.delete()
+        return Response({"message": "플랜이 삭제되었습니다"}, status=status.HTTP_200_OK)

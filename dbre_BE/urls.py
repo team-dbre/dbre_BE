@@ -16,7 +16,12 @@ from payment.views import (
     ResumeSubscriptionView,
     StoreBillingKeyView,
 )
-from plan.views import PlanActivateView, PlanDetailView, PlanListCreateView
+from plan.views import (
+    PlanActivateView,
+    PlanDeleteView,
+    PlanDetailView,
+    PlanListCreateView,
+)
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
     EmailCheckView,
@@ -63,6 +68,7 @@ plan_patterns = [
     # path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
     path("", PlanListCreateView.as_view(), name="plan-list-create"),
     path("<int:plan_id>/", PlanDetailView.as_view(), name="plan-detail"),
+    path("<int:plan_id>/delete/", PlanDeleteView.as_view(), name="plan-delete"),
     path("<int:plan_id>/active/", PlanActivateView.as_view(), name="term-detail"),
 ]
 
