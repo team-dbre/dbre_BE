@@ -1,5 +1,3 @@
-import random
-
 from datetime import timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -324,6 +322,28 @@ class GoogleCallbackView(GenericAPIView):
 class RequestVerificationView(APIView):
     serializer_class = PhoneVerificationRequestSerializer
 
+    @extend_schema(
+        tags=["user"],
+        summary="전화번호 인증번호 요청",
+        description="전화번호를 입력받아 인증번호를 SMS로 발송합니다.",
+        request=PhoneVerificationRequestSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="인증번호 발송 성공",
+                response={
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                },
+            ),
+            400: OpenApiResponse(
+                description="잘못된 요청",
+                response={
+                    "type": "object",
+                    "properties": {"error": {"type": "string"}},
+                },
+            ),
+        },
+    )
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
@@ -355,6 +375,28 @@ class RequestVerificationView(APIView):
 class VerifyPhoneView(APIView):
     serializer_class = PhoneVerificationConfirmSerializer
 
+    @extend_schema(
+        tags=["user"],
+        summary="전화번호 인증번호 확인",
+        description="전화번호와 인증번호를 입력받아 인증을 진행합니다.",
+        request=PhoneVerificationConfirmSerializer,
+        responses={
+            200: OpenApiResponse(
+                description="인증 성공",
+                response={
+                    "type": "object",
+                    "properties": {"message": {"type": "string"}},
+                },
+            ),
+            400: OpenApiResponse(
+                description="잘못된 요청",
+                response={
+                    "type": "object",
+                    "properties": {"error": {"type": "string"}},
+                },
+            ),
+        },
+    )
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
