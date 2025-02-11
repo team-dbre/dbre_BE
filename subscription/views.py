@@ -1,102 +1,64 @@
-# from django.http import JsonResponse
-# from django.views.decorators.csrf import csrf_exempt
-#
-# from subscription.models import Subs
-#
-#
-# # Create your views here.
-# @csrf_exempt
-# def subscription_list(request):
-#     if request.method == "GET":
-#         subscriptions = list(Subs.objects.values())
-#         return JsonResponse({"subscriptions": subscriptions}, safe=False)
-#     return JsonResponse({"error": "Only GET method allowed"}, status=405
-from typing import Optional
-
-from django.db.models import QuerySet
-from rest_framework import status, viewsets
-from rest_framework.decorators import action
+from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from subscription.models import SubHistories, Subs
-from subscription.serializers import SubsSerializer
+from subscription.serializers import SubHistorySerializer, SubsSerializer
 
 
-class SubsViewSet(viewsets.ModelViewSet):
-    queryset = Subs.objects.all()
-    serializer_class = SubsSerializer
-    permission_classes = [IsAuthenticated]
+@extend_schema(tags=["subscription"])
+class SubscriptionView(APIView):
+    """
+    구독 정보 조회
+    """
 
-    def get_queryset(self) -> QuerySet:
-        return self.queryset.filter(user=self.request.user)
+    permission_classes = (IsAuthenticated,)
 
-    @action(detail=True, methods=["post"])
-    def pause(self, request: Request, pk: Optional[int] = None) -> Response:
-        """구독 일시 정지"""
-        subscription = self.get_object()
-        pause_date = request.data.get("pause_date")
+    @extend_schema(
+        summary="구독 정보 조회",
+        description="구독 ID를 기반으로 특정 구독 정보를 조회합니다.",
+        responses={
+            200: SubsSerializer(many=True),
+            403: {"description": "접근 권한 없음"},
+            404: {"description": "구독을 찾을 수 없음"},
+        },
+        request=None,
+        parameters=[],
+    )
+    def get(self, request: Request) -> Response:
+        subs = Subs.objects.filter(user_id=request.user.id)
 
-        if not pause_date:
+        if not subs.exists():
             return Response(
-                {"error": "pause_date is required"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "구독 정보가 없습니다"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        subscription.remaining_period = subscription.end_date - subscription.start_date
-        subscription.end_date = None  # 일시정지로 인해 만료일 제거
-        subscription.save()
+        serializer = SubsSerializer(subs, many=True)
+        return Response(serializer.data)
 
-        SubHistories.objects.create(
-            sub=subscription,
-            user=request.user,
-            plan_id=subscription.id,  # Plan ID를 예시로 저장
-            status="pause",
-        )
 
-        return Response(
-            {
-                "user_id": request.user.id,
-                "subscription_id": subscription.id,
-                "status": "paused",
-                "pause_date": pause_date,
-                "message": "Successfully paused",
-            }
-        )
+class SusHistoryView(APIView):
+    """
+    구독 이력 조회
+    """
 
-    @action(detail=True, methods=["post"])
-    def cancel(self, request: Request, pk: Optional[int] = None) -> Response:
-        """구독 취소"""
-        subscription = self.get_object()
-        reason = request.data.get("cancelled_reason")
-        other_reason = request.data.get("other_reason", "")
+    permission_classes = (IsAuthenticated,)
 
-        if reason not in dict(Subs.cancelled_reason_choices):
+    @extend_schema(
+        tags=["subscription"],
+        responses={
+            200: SubHistorySerializer(many=True),
+        },
+    )
+    def get(self, request: Request) -> Response:
+        subs_history = SubHistories.objects.filter(user_id=request.user.id)
+        if not subs_history.exists():
             return Response(
-                {"error": "Invalid cancellation reason"},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": "구독 정보가 없습니다"}, status=status.HTTP_404_NOT_FOUND
             )
-
-        subscription.cancelled_reason = reason
-        if reason == "other":
-            subscription.other_reason = other_reason
-
-        subscription.auto_renew = False
-        subscription.save()
-
-        SubHistories.objects.create(
-            sub=subscription,
-            user=request.user,
-            plan_id=subscription.id,
-            status="cancel",
-        )
-
-        return Response(
-            {
-                "user_id": request.user.id,
-                "subscription_id": subscription.id,
-                "status": "cancelled",
-                "cancelled_reason": reason,
-                "message": "Successfully cancelled",
-            }
-        )
+        serializer = SubHistorySerializer(subs_history, many=True)
+        return Response(serializer.data)

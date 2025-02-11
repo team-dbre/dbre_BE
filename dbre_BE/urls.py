@@ -22,6 +22,7 @@ from plan.views import (
     PlanDetailView,
     PlanListCreateView,
 )
+from subscription.views import SubscriptionView, SusHistoryView
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
     EmailCheckView,
@@ -63,14 +64,21 @@ payment_patterns = [
 ]
 
 
-# Plan 관련 URL 패턴
+# plan 관련 URL 패턴
 plan_patterns = [
     # path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
     path("", PlanListCreateView.as_view(), name="plan-list-create"),
     path("<int:plan_id>/", PlanDetailView.as_view(), name="plan-detail"),
     path("<int:plan_id>/delete/", PlanDeleteView.as_view(), name="plan-delete"),
-    path("<int:plan_id>/active/", PlanActivateView.as_view(), name="term-detail"),
+    path("<int:plan_id>/active/", PlanActivateView.as_view(), name="plan-active"),
 ]
+
+# subscription 관련 URL 패턴
+subs_patterns = [
+    path("", SubscriptionView.as_view(), name="subscription-detail"),
+    path("history/", SusHistoryView.as_view(), name="subscription-history"),
+]
+
 
 # User 관련 URL 패턴
 user_patterns = [
@@ -99,8 +107,9 @@ urlpatterns = [
     path("api/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     path("api/term/", include((term_patterns, "term"))),
     path("api/payment/", include((payment_patterns, "payment"))),
-    path("api/user/", include((user_patterns, "user"))),
     path("api/plans/", include((plan_patterns, "plan"))),
+    path("api/subscriptions/", include((subs_patterns, "subscription"))),
+    path("api/user/", include((user_patterns, "user"))),
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
 ]

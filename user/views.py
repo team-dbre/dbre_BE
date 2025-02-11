@@ -1,5 +1,3 @@
-import random
-
 from datetime import timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -7,8 +5,10 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiExample,
+    OpenApiParameter,
     OpenApiResponse,
     extend_schema,
     extend_schema_view,
@@ -30,6 +30,8 @@ from user.models import Agreements, CustomUser
 from user.serializers import (
     AuthUrlResponseSerializer,
     EmailCheckSerializer,
+    GoogleCallbackResponseSerializer,
+    GoogleLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
     PhoneNumberSerializer,
@@ -226,11 +228,34 @@ class LogoutView(GenericAPIView):
 class GoogleLoginView(GenericAPIView):
     renderer_classes = [JSONRenderer]
 
-    @extend_schema(tags=["user"], responses={200: AuthUrlResponseSerializer})
+    def get_redirect_uri(self, environment: str) -> str | None:
+        redirects = {
+            "backend_local": settings.GOOGLE_REDIRECT_URI,
+            "frontend_local": settings.FLOCAL_GOOGLE_REDIRECT_URI,
+            "frontend_prod": settings.FPROD_GOOGLE_REDIRECT_URI,
+        }
+        return redirects.get(environment, redirects["backend_local"])
+
+    @extend_schema(
+        tags=["user"],
+        parameters=[
+            OpenApiParameter(
+                name="env",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="환경 설정 (backend_local, frontend_local, frontend_prod)",
+                required=False,
+                default="backend_local",
+            )
+        ],
+        responses={200: AuthUrlResponseSerializer},
+    )
     def get(self, request: Request) -> Response:
+        environment = request.query_params.get("env", "backend_local")
+
         params = {
             "client_id": settings.GOOGLE_CLIENT_ID,
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "redirect_uri": self.get_redirect_uri(environment),
             "response_type": "code",
             "scope": "email profile",
             "access_type": "offline",
@@ -240,20 +265,21 @@ class GoogleLoginView(GenericAPIView):
         auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
         return Response({"auth_url": auth_url})
 
-
-class GoogleCallbackView(GenericAPIView):
-    renderer_classes = [JSONRenderer]
-
     @extend_schema(
         tags=["user"],
+        request=GoogleLoginRequestSerializer,
         responses={
             200: OpenApiResponse(
-                response=TokenResponseSerializer, description="구글 콜백 처리"
+                response=TokenResponseSerializer, description="구글 로그인 처리"
             )
         },
     )
-    def get(self, request: Request) -> Response:
-        code = request.GET.get("code")
+    def post(self, request: Request) -> Response:
+        serializer = GoogleLoginRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        code = serializer.validated_data["code"]
         if not code:
             return Response(
                 {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
@@ -295,7 +321,6 @@ class GoogleCallbackView(GenericAPIView):
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
 
-            # Redis에 토큰 저장
             cache.set(
                 f"user_token:{user.id}",
                 {"access_token": access_token, "refresh_token": refresh_token},
@@ -319,6 +344,27 @@ class GoogleCallbackView(GenericAPIView):
                 {"message": "구글 로그인에 실패했습니다.", "detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class GoogleCallbackView(GenericAPIView):
+    renderer_classes = [JSONRenderer]
+
+    @extend_schema(
+        tags=["user"],
+        responses={
+            200: OpenApiResponse(
+                response=GoogleCallbackResponseSerializer,
+                description="구글 인증 코드 반환",
+            )
+        },
+    )
+    def get(self, request: Request) -> Response:
+        code = request.GET.get("code")
+        if not code:
+            return Response(
+                {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response({"code": code})
 
 
 class RequestVerificationView(APIView):
@@ -352,23 +398,23 @@ class RequestVerificationView(APIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         phone = serializer.validated_data["phone"]
-        formatted_phone = format_phone_for_twilio(
-            phone
-        )  # 010-xxxx-xxxx를 +8210xxxxxxxx로 변환
-        verification_code = "".join([str(random.randint(0, 9)) for _ in range(6)])
-
-        cache.set(f"phone_verification:{phone}", verification_code, timeout=300)
+        formatted_phone = format_phone_for_twilio(phone)
 
         try:
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            client.messages.create(
-                body=f"인증번호: {verification_code}",
-                from_=settings.TWILIO_PHONE_NUMBER,
-                to=formatted_phone,
+            verification = client.verify.v2.services(
+                settings.TWILIO_VERIFY_SERVICE_SID
+            ).verifications.create(
+                to=formatted_phone, channel="sms", locale="ko"  # 한국어 메시지 설정
             )
+
             return Response({"message": "인증번호가 발송되었습니다."})
         except TwilioRestException as e:
-            error_message = f"SMS 발송 실패: {str(e)}"
+            print(f"Twilio Error: {str(e)}")
+            error_message = "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요."
+            if "60238" in str(e):  # Verify 서비스 블록 에러
+                error_message = "잠시 후 다시 시도해주세요."
+
             return Response(
                 {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
             )
@@ -406,23 +452,26 @@ class VerifyPhoneView(APIView):
 
         phone = serializer.validated_data["phone"]
         code = serializer.validated_data["code"]
+        formatted_phone = format_phone_for_twilio(phone)
 
-        stored_code = cache.get(f"phone_verification:{phone}")
+        try:
+            client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+            verification_check = client.verify.v2.services(
+                settings.TWILIO_VERIFY_SERVICE_SID
+            ).verification_checks.create(to=formatted_phone, code=code)
 
-        if not stored_code:
+            if verification_check.status == "approved":
+                cache.set(f"phone_verified:{phone}", "true", timeout=86400)
+                return Response({"message": "인증이 완료되었습니다."})
+            else:
+                return Response(
+                    {"error": "잘못된 인증번호입니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+        except TwilioRestException as e:
             return Response(
-                {"error": "인증번호가 만료되었습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
+                {"error": f"인증 실패: {str(e)}"}, status=status.HTTP_400_BAD_REQUEST
             )
-
-        if code != stored_code:
-            return Response(
-                {"error": "잘못된 인증번호입니다."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        cache.set(f"phone_verified:{phone}", "true", timeout=86400)
-
-        return Response({"message": "인증이 완료되었습니다."})
 
 
 class SavePhoneNumberView(APIView):
@@ -474,3 +523,108 @@ class SavePhoneNumberView(APIView):
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+# twilio active number 구매 버전
+# class RequestVerificationView(APIView):
+#     serializer_class = PhoneVerificationRequestSerializer
+#
+#     @extend_schema(
+#         tags=["user"],
+#         summary="전화번호 인증번호 요청",
+#         description="전화번호를 입력받아 인증번호를 SMS로 발송합니다.",
+#         request=PhoneVerificationRequestSerializer,
+#         responses={
+#             200: OpenApiResponse(
+#                 description="인증번호 발송 성공",
+#                 response={
+#                     "type": "object",
+#                     "properties": {"message": {"type": "string"}},
+#                 },
+#             ),
+#             400: OpenApiResponse(
+#                 description="잘못된 요청",
+#                 response={
+#                     "type": "object",
+#                     "properties": {"error": {"type": "string"}},
+#                 },
+#             ),
+#         },
+#     )
+#     def post(self, request: Request) -> Response:
+#         serializer = self.serializer_class(data=request.data)
+#         if not serializer.is_valid():
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#
+#         phone = serializer.validated_data["phone"]
+#         formatted_phone = format_phone_for_twilio(
+#             phone
+#         )  # 010-xxxx-xxxx를 +8210xxxxxxxx로 변환
+#         verification_code = "".join([str(random.randint(0, 9)) for _ in range(6)])
+#
+#         cache.set(f"phone_verification:{phone}", verification_code, timeout=300)
+#
+#         try:
+#             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+#             client.messages.create(
+#                 body=f"인증번호: {verification_code}",
+#                 from_=settings.TWILIO_PHONE_NUMBER,
+#                 to=formatted_phone,
+#             )
+#             return Response({"message": "인증번호가 발송되었습니다."})
+#         except TwilioRestException as e:
+#             error_message = f"SMS 발송 실패: {str(e)}"
+#             return Response(
+#                 {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
+#             )
+#
+#
+# class VerifyPhoneView(APIView):
+#     serializer_class = PhoneVerificationConfirmSerializer
+#
+#     @extend_schema(
+#         tags=["user"],
+#         summary="전화번호 인증번호 확인",
+#         description="전화번호와 인증번호를 입력받아 인증을 진행합니다.",
+#         request=PhoneVerificationConfirmSerializer,
+#         responses={
+#             200: OpenApiResponse(
+#                 description="인증 성공",
+#                 response={
+#                     "type": "object",
+#                     "properties": {"message": {"type": "string"}},
+#                 },
+#             ),
+#             400: OpenApiResponse(
+#                 description="잘못된 요청",
+#                 response={
+#                     "type": "object",
+#                     "properties": {"error": {"type": "string"}},
+#                 },
+#             ),
+#         },
+#     )
+#     def post(self, request: Request) -> Response:
+#         serializer = self.serializer_class(data=request.data)
+#         if not serializer.is_valid():
+#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+#
+#         phone = serializer.validated_data["phone"]
+#         code = serializer.validated_data["code"]
+#
+#         stored_code = cache.get(f"phone_verification:{phone}")
+#
+#         if not stored_code:
+#             return Response(
+#                 {"error": "인증번호가 만료되었습니다."},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#
+#         if code != stored_code:
+#             return Response(
+#                 {"error": "잘못된 인증번호입니다."}, status=status.HTTP_400_BAD_REQUEST
+#             )
+#
+#         cache.set(f"phone_verified:{phone}", "true", timeout=86400)
+#
+#         return Response({"message": "인증이 완료되었습니다."})
