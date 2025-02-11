@@ -5,8 +5,10 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.core.cache import cache
 from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiExample,
+    OpenApiParameter,
     OpenApiResponse,
     extend_schema,
     extend_schema_view,
@@ -28,6 +30,8 @@ from user.models import Agreements, CustomUser
 from user.serializers import (
     AuthUrlResponseSerializer,
     EmailCheckSerializer,
+    GoogleCallbackResponseSerializer,
+    GoogleLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
     PhoneNumberSerializer,
@@ -224,11 +228,34 @@ class LogoutView(GenericAPIView):
 class GoogleLoginView(GenericAPIView):
     renderer_classes = [JSONRenderer]
 
-    @extend_schema(tags=["user"], responses={200: AuthUrlResponseSerializer})
+    def get_redirect_uri(self, environment: str) -> str | None:
+        redirects = {
+            "backend_local": settings.GOOGLE_REDIRECT_URI,
+            "frontend_local": settings.FLOCAL_GOOGLE_REDIRECT_URI,
+            "frontend_prod": settings.FPROD_GOOGLE_REDIRECT_URI,
+        }
+        return redirects.get(environment, redirects["backend_local"])
+
+    @extend_schema(
+        tags=["user"],
+        parameters=[
+            OpenApiParameter(
+                name="env",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="환경 설정 (backend_local, frontend_local, frontend_prod)",
+                required=False,
+                default="backend_local",
+            )
+        ],
+        responses={200: AuthUrlResponseSerializer},
+    )
     def get(self, request: Request) -> Response:
+        environment = request.query_params.get("env", "backend_local")
+
         params = {
             "client_id": settings.GOOGLE_CLIENT_ID,
-            "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+            "redirect_uri": self.get_redirect_uri(environment),
             "response_type": "code",
             "scope": "email profile",
             "access_type": "offline",
@@ -238,20 +265,21 @@ class GoogleLoginView(GenericAPIView):
         auth_url = f"https://accounts.google.com/o/oauth2/v2/auth?{urlencode(params)}"
         return Response({"auth_url": auth_url})
 
-
-class GoogleCallbackView(GenericAPIView):
-    renderer_classes = [JSONRenderer]
-
     @extend_schema(
         tags=["user"],
+        request=GoogleLoginRequestSerializer,
         responses={
             200: OpenApiResponse(
-                response=TokenResponseSerializer, description="구글 콜백 처리"
+                response=TokenResponseSerializer, description="구글 로그인 처리"
             )
         },
     )
-    def get(self, request: Request) -> Response:
-        code = request.GET.get("code")
+    def post(self, request: Request) -> Response:
+        serializer = GoogleLoginRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        code = serializer.validated_data["code"]
         if not code:
             return Response(
                 {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
@@ -293,7 +321,6 @@ class GoogleCallbackView(GenericAPIView):
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
 
-            # Redis에 토큰 저장
             cache.set(
                 f"user_token:{user.id}",
                 {"access_token": access_token, "refresh_token": refresh_token},
@@ -317,6 +344,27 @@ class GoogleCallbackView(GenericAPIView):
                 {"message": "구글 로그인에 실패했습니다.", "detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+
+class GoogleCallbackView(GenericAPIView):
+    renderer_classes = [JSONRenderer]
+
+    @extend_schema(
+        tags=["user"],
+        responses={
+            200: OpenApiResponse(
+                response=GoogleCallbackResponseSerializer,
+                description="구글 인증 코드 반환",
+            )
+        },
+    )
+    def get(self, request: Request) -> Response:
+        code = request.GET.get("code")
+        if not code:
+            return Response(
+                {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response({"code": code})
 
 
 class RequestVerificationView(APIView):
