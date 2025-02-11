@@ -22,6 +22,7 @@ from plan.views import (
     PlanDetailView,
     PlanListCreateView,
 )
+from subscription.views import SubscriptionView, SusHistoryView
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
     EmailCheckView,
@@ -72,6 +73,13 @@ plan_patterns = [
     path("<int:plan_id>/active/", PlanActivateView.as_view(), name="term-detail"),
 ]
 
+# subscription 관련 URL 패턴
+subs_patterns = [
+    path("", SubscriptionView.as_view(), name="subscription-detail"),
+    path("history/", SusHistoryView.as_view(), name="subscription-history"),
+]
+
+
 # User 관련 URL 패턴
 user_patterns = [
     path("signup/", UserRegistrationView.as_view(), name="signup"),
@@ -101,6 +109,7 @@ urlpatterns = [
     path("api/payment/", include((payment_patterns, "payment"))),
     path("api/user/", include((user_patterns, "user"))),
     path("api/plans/", include((plan_patterns, "plan"))),
+    path("api/subscriptions/", include((subs_patterns, "subscription"))),
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
 ]
