@@ -5,13 +5,13 @@ import requests
 from django.conf import settings
 
 
-def get_google_access_token(code: str) -> Optional[str]:
+def get_google_access_token(code: str, redirect_uri: str) -> Optional[str]:
     token_url = "https://oauth2.googleapis.com/token"
     data = {
         "code": code,
         "client_id": settings.GOOGLE_CLIENT_ID,
         "client_secret": settings.GOOGLE_CLIENT_SECRET,
-        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "grant_type": "authorization_code",
     }
     response = requests.post(token_url, data=data)
