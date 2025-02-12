@@ -194,20 +194,17 @@ SPECTACULAR_SETTINGS = {
 }
 
 SWAGGER_SETTINGS = {
-    'USE_SESSION_AUTH': False,
-    'SECURITY_DEFINITIONS': {
-        'Bearer': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': "JWT Token 형식: 'Bearer {token}'"
+    "USE_SESSION_AUTH": False,
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+            "description": "JWT Token 형식: 'Bearer {token}'",
         }
     },
-    'SECURITY_REQUIREMENTS': [{
-        'Bearer': []
-    }]
+    "SECURITY_REQUIREMENTS": [{"Bearer": []}],
 }
-
 
 
 STATIC_URL = "staticfiles/"

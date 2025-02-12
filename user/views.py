@@ -21,6 +21,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from twilio.base.exceptions import TwilioRestException
@@ -146,7 +147,7 @@ class EmailCheckView(GenericAPIView):
 
 
 class LoginView(TokenObtainPairView):
-    serializer_class = LoginSerializer
+    serializer_class = LoginSerializer  # type: ignore
 
     @extend_schema(
         tags=["user"],
