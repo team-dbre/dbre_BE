@@ -144,11 +144,11 @@ class EmailCheckView(GenericAPIView):
         )
 
 
-@extend_schema(tags=["user"])
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer  # type: ignore
 
     @extend_schema(
+        tags=["user"],
         summary="User Login",
         description="Login with email and password to get access and refresh tokens",
         request=LoginSerializer,
