@@ -1,9 +1,15 @@
+import hashlib
+import hmac
 import logging
+import os
 
 from typing import Any, Dict
 
 from dateutil.relativedelta import relativedelta
+from django.conf import settings
+from django.http import HttpRequest
 from django.utils.timezone import now
+from rest_framework.request import Request
 
 from payment.models import Pays
 from subscription.models import Subs
@@ -80,3 +86,76 @@ class WebhookService:
 
         logger.error(f"[Webhook] 결제 실패 - Auto renew 비활성화")
         return {"message": "Payment failed, subscription auto-renew disabled"}
+
+
+def update_payment_status(
+    payment_id: int, status: str, amount: float
+) -> dict[str, Any]:
+    try:
+        pay_record = Pays.objects.get(imp_uid=payment_id)
+
+        # 결제 금액 검증
+        if pay_record.amount != amount:
+            return {"message": "Amount mismatch", "status": 400}
+
+        if status == "PAID":
+            pay_record.status = "PAID"
+            pay_record.paid_at = now()
+        elif status == "CANCELLED":
+            pay_record.status = "CANCELLED"
+        elif status == "REFUNDED":
+            pay_record.status = "REFUNDED"
+
+        pay_record.save()
+        return {"message": "Payment updated successfully", "status": 200}
+
+    except Pays.DoesNotExist:
+        return {"message": "Payment not found", "status": 404}
+    except Exception as e:
+        return {"message": f"Error: {str(e)}", "status": 500}
+
+
+def verify_signature(request: Request) -> bool:
+    try:
+        # 🔹 1. 요청 바디(body) 읽기
+        body = (
+            request.body
+            if isinstance(request.body, bytes)
+            else request.body.encode("utf-8")
+        )
+        decoded_body = body.decode("utf-8")
+
+        logger.info(f"✅ Webhook Raw Body: {decoded_body}")
+
+        # 🔹 2. 요청 헤더에서 x-portone-signature 가져오기
+        received_signature = request.headers.get("x-portone-signature")
+        if not received_signature:
+            logger.error("❌ Missing x-portone-signature header")
+            return False
+
+        # 🔹 3. HMAC SHA256 서명 생성
+        expected_signature = hmac.new(
+            key=settings.IMP_WEBHOOK_SECRETE.encode(  # type: ignore
+                "utf-8"
+            ),  # 환경변수에서 Webhook Secret 가져오기
+            msg=decoded_body.encode("utf-8"),
+            digestmod=hashlib.sha256,
+        ).hexdigest()
+
+        # 🔹 4. 로그 출력 (디버깅용)
+        logger.info(f"✅ Expected Signature: {expected_signature}")
+        logger.info(f"🚨 Received Signature: {received_signature}")
+
+        # 🔹 5. 검증 수행
+        is_valid = hmac.compare_digest(expected_signature, received_signature)
+
+        if not is_valid:
+            logger.error("❌ Signature verification failed")
+        else:
+            logger.info("✅ Signature verification successful")
+
+        return is_valid
+
+    except Exception as e:
+        logger.exception(f"🔥 Error verifying signature: {e}")
+        return False

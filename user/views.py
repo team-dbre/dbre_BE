@@ -3,6 +3,7 @@ from typing import Any, cast
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
 from django.utils import timezone
 from drf_spectacular.types import OpenApiTypes
@@ -20,6 +21,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from twilio.base.exceptions import TwilioRestException
@@ -144,11 +146,11 @@ class EmailCheckView(GenericAPIView):
         )
 
 
-@extend_schema(tags=["user"])
 class LoginView(TokenObtainPairView):
     serializer_class = LoginSerializer  # type: ignore
 
     @extend_schema(
+        tags=["user"],
         summary="User Login",
         description="Login with email and password to get access and refresh tokens",
         request=LoginSerializer,
@@ -178,8 +180,16 @@ class LoginView(TokenObtainPairView):
             access_token = response.data.get("access_token")
             refresh_token = response.data.get("refresh_token")
 
-            # 현재 사용자 정보 가져오기
-            user = request.user
+            # Authorization 헤더 설정
+            response["Authorization"] = f"Bearer {access_token}"
+
+            # 시리얼라이저에서 사용자 정보 가져오기
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            user = serializer.user  # 인증된 사용자
+
+            # 수동으로 user_logged_in 시그널 발생
+            user_logged_in.send(sender=user.__class__, request=request, user=user)
 
             # Redis에 토큰 저장
             cache.set(
@@ -321,6 +331,9 @@ class GoogleLoginView(GenericAPIView):
             access_token = str(refresh.access_token)
             refresh_token = str(refresh)
 
+            # 수동으로 user_logged_in 시그널 발생
+            user_logged_in.send(sender=user.__class__, request=request, user=user)
+
             cache.set(
                 f"user_token:{user.id}",
                 {"access_token": access_token, "refresh_token": refresh_token},
@@ -329,7 +342,7 @@ class GoogleLoginView(GenericAPIView):
                 ).total_seconds(),
             )
 
-            return Response(
+            response = Response(
                 {
                     "message": "구글 로그인이 완료되었습니다.",
                     "access_token": access_token,
@@ -338,6 +351,11 @@ class GoogleLoginView(GenericAPIView):
                 },
                 status=status.HTTP_200_OK,
             )
+
+            # Authorization 헤더 설정
+            response["Authorization"] = f"Bearer {access_token}"
+
+            return response
 
         except Exception as e:
             return Response(
