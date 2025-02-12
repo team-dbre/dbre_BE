@@ -30,6 +30,8 @@ class BillingKey(models.Model):
     user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
     billing_key = models.CharField(max_length=255, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    card_name = models.CharField(max_length=20, null=True, blank=True)
+    card_number = models.CharField(max_length=30, null=True, blank=True)
 
     def __str__(self) -> str:
         return f"BillingKey for {self.user.email}"
