@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 class BillingKeySerializer(serializers.ModelSerializer):
     """Billing Key 저장을 위한 시리얼라이저"""
 
+    user_id = serializers.UUIDField(write_only=True)
     billing_key = serializers.CharField()
 
     class Meta:
@@ -112,11 +113,14 @@ class RefundSerializer(serializers.Serializer):
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """사용자 및 구독 정보 검증"""
-        user_id = data["user_id"]
-        plan_id = data["plan_id"]
+        request = self.context.get("request")  # ✅ DRF에서 request 가져오기
+        user = getattr(request, "user", None)  # ✅ request.user 가져오기
+        if not user or not user.is_authenticated:
+            raise serializers.ValidationError({"user_id": "로그인이 필요합니다."})
+        plan_id = data.get("plan_id")
 
         # 사용자의 구독 정보 조회
-        subscription = Subs.objects.filter(user_id=user_id, plan_id=plan_id).first()
+        subscription = Subs.objects.filter(user_id=user, plan_id=plan_id).first()
         if not subscription:
             raise serializers.ValidationError(
                 {"user_id": "사용자의 구독 정보가 없습니다."}
