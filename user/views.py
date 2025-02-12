@@ -277,6 +277,16 @@ class GoogleLoginView(GenericAPIView):
 
     @extend_schema(
         tags=["user"],
+        parameters=[
+            OpenApiParameter(
+                name="env",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description="환경 설정 (backend_local, frontend_local, frontend_prod)",
+                required=False,
+                default="backend_local",
+            )
+        ],
         request=GoogleLoginRequestSerializer,
         responses={
             200: OpenApiResponse(
@@ -290,13 +300,22 @@ class GoogleLoginView(GenericAPIView):
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         code = serializer.validated_data["code"]
+        environment = request.query_params.get("env", "backend_local")
+        redirect_uri = self.get_redirect_uri(environment)
+
+        if redirect_uri is None:
+            return Response(
+                {"message": "잘못된 환경 설정입니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if not code:
             return Response(
                 {"message": "인증 코드가 없습니다."}, status=status.HTTP_400_BAD_REQUEST
             )
 
         try:
-            access_token = get_google_access_token(code)
+            access_token = get_google_access_token(code=code, redirect_uri=redirect_uri)
             if access_token is None:
                 raise ValueError("Failed to get access token")
 
