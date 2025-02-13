@@ -32,8 +32,9 @@ from user.views import (
     LogoutView,
     RequestVerificationView,
     SavePhoneNumberView,
+    UserProfileView,
     UserRegistrationView,
-    VerifyPhoneView, UserProfileView,
+    VerifyPhoneView,
 )
 
 

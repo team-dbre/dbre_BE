@@ -39,7 +39,8 @@ from user.serializers import (
     PhoneVerificationConfirmSerializer,
     PhoneVerificationRequestSerializer,
     TokenResponseSerializer,
-    UserRegistrationSerializer, UserProfileSerializer,
+    UserProfileSerializer,
+    UserRegistrationSerializer,
 )
 from user.utils import (
     format_phone_for_twilio,
@@ -568,20 +569,17 @@ class SavePhoneNumberView(APIView):
         description="로그인된 사용자의 프로필 정보를 조회합니다.",
         responses={
             200: OpenApiResponse(
-                response=UserProfileSerializer,
-                description="사용자 정보 조회 성공"
+                response=UserProfileSerializer, description="사용자 정보 조회 성공"
             ),
-            401: OpenApiResponse(
-                description="인증되지 않은 사용자"
-            )
-        }
+            401: OpenApiResponse(description="인증되지 않은 사용자"),
+        },
     )
 )
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = UserProfileSerializer
 
-    def get(self, request):
+    def get(self, request: Request) -> Response:
         user = request.user
         serializer = self.serializer_class(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
