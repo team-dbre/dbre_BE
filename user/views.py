@@ -384,6 +384,7 @@ class GoogleLoginView(GenericAPIView):
                     "access_token": access_token,
                     "refresh_token": refresh_token,
                     "phone": bool(user.phone),
+                    "id": user.id,
                 },
                 status=status.HTTP_200_OK,
             )
