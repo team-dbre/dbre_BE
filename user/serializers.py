@@ -1,5 +1,5 @@
-from datetime import timedelta, datetime
-from typing import Optional, Dict, Union
+from datetime import datetime, timedelta
+from typing import Dict, Optional, Union
 
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -135,7 +135,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ["email", "name", "phone", "sub_status", "subscription_info"]
 
-    def get_subscription_info(self, obj: CustomUser) -> Optional[Dict[str, Optional[Union[datetime, int]]]]:
+    def get_subscription_info(
+        self, obj: CustomUser
+    ) -> Optional[Dict[str, Optional[Union[datetime, int]]]]:
         if obj.sub_status in ["active", "paused"]:
             try:
                 subscription = Subs.objects.filter(user=obj).first()
