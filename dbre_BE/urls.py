@@ -10,11 +10,12 @@ from rest_framework.routers import DefaultRouter
 from payment.views import (
     GetBillingKeyView,
     PauseSubscriptionView,
-    PortOneBillingWebhookView,
+    PortOneWebhookView,
     RefundSubscriptionView,
     RequestSubscriptionPaymentView,
     ResumeSubscriptionView,
     StoreBillingKeyView,
+    UpdateBillingKeyView,
 )
 from plan.views import (
     PlanActivateView,
@@ -58,15 +59,14 @@ payment_patterns = [
         GetBillingKeyView.as_view(),
         name="get_billing_key",
     ),
-    path(
-        "billing/webhook/",
-        PortOneBillingWebhookView.as_view(),
-        name="portone_billing_webhook",
-    ),
+    path("webhook/", PortOneWebhookView.as_view(), name="portone_webhook"),
     path("billing-key/", StoreBillingKeyView.as_view(), name="store-billing-key"),
     path("refund/", RefundSubscriptionView.as_view(), name="refund_subscription"),
     path("pause/", PauseSubscriptionView.as_view(), name="pause_subscription"),
     path("resume/", ResumeSubscriptionView.as_view(), name="resume_subscription"),
+    path(
+        "update-billing-key/", UpdateBillingKeyView.as_view(), name="update_billing_key"
+    ),
 ]
 
 
