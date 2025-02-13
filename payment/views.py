@@ -101,6 +101,7 @@ def subscription_service(request: HttpRequest) -> HttpResponse:
     return render(request, "update.html")
 
 
+@extend_schema(tags=["payment"])
 class UpdateBillingKeyView(APIView):
     """Billing Key 변경 API"""
 
