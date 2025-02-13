@@ -21,6 +21,7 @@ from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from twilio.base.exceptions import TwilioRestException
@@ -38,6 +39,7 @@ from user.serializers import (
     PhoneNumberSerializer,
     PhoneVerificationConfirmSerializer,
     PhoneVerificationRequestSerializer,
+    RefreshTokenSerializer,
     TokenResponseSerializer,
     UserProfileSerializer,
     UserRegistrationSerializer,
@@ -583,3 +585,70 @@ class UserProfileView(APIView):
         user = request.user
         serializer = self.serializer_class(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TokenRefreshView(APIView):
+    serializer_class = RefreshTokenSerializer
+
+    @extend_schema(
+        tags=["user"],
+        summary="액세스 토큰 갱신",
+        description="리프레시 토큰을 사용하여 새로운 액세스 토큰을 발급합니다.",
+        request=RefreshTokenSerializer,
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "access_token": {"type": "string"},
+                    "refresh_token": {"type": "string"},
+                    "message": {"type": "string"},
+                },
+            }
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            refresh_token = serializer.validated_data["refresh_token"]
+            token = RefreshToken(refresh_token)
+
+            # 새로운 액세스 토큰과 리프레시 토큰 생성
+            access_token = str(token.access_token)
+            new_refresh_token = str(token)
+
+            # Redis에 새로운 토큰 정보 업데이트
+            user_id = token.payload.get("user_id")
+            cache.set(
+                f"user_token:{user_id}",
+                {"access_token": access_token, "refresh_token": new_refresh_token},
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
+            )
+
+            response = Response(
+                {
+                    "access_token": access_token,
+                    "refresh_token": new_refresh_token,
+                    "message": "토큰이 성공적으로 갱신되었습니다.",
+                }
+            )
+
+            # Authorization 헤더 설정
+            response["Authorization"] = f"Bearer {access_token}"
+
+            return response
+
+        except TokenError:
+            return Response(
+                {"error": "유효하지 않은 리프레시 토큰입니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"토큰 갱신 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

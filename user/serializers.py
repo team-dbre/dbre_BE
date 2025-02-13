@@ -159,3 +159,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             except Subs.DoesNotExist:
                 return None
         return None
+
+
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField()

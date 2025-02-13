@@ -32,6 +32,7 @@ from user.views import (
     LogoutView,
     RequestVerificationView,
     SavePhoneNumberView,
+    TokenRefreshView,
     UserProfileView,
     UserRegistrationView,
     VerifyPhoneView,
@@ -99,6 +100,7 @@ user_patterns = [
     path("verify-phone/", VerifyPhoneView.as_view(), name="verify_phone"),
     path("g-phone/", SavePhoneNumberView.as_view(), name="g-phone"),
     path("", UserProfileView.as_view(), name="user-profile"),
+    path("refresh_token/", TokenRefreshView.as_view(), name="refresh-token"),
 ]
 
 # 메인 URL 패턴
