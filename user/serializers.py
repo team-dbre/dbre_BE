@@ -1,6 +1,10 @@
-from django.contrib.auth import authenticate
+from datetime import datetime, timedelta
+from typing import Dict, Optional, Union
+
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from subscription.models import Subs
 
 from .models import CustomUser
 from .utils import normalize_phone_number
@@ -122,3 +126,47 @@ class PhoneVerificationConfirmSerializer(serializers.Serializer):
 
 class PhoneNumberSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    subscription_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            "email",
+            "name",
+            "phone",
+            "img_url",
+            "sub_status",
+            "subscription_info",
+        ]
+
+    def get_subscription_info(
+        self, obj: CustomUser
+    ) -> Optional[Dict[str, Optional[Union[datetime, int]]]]:
+        if obj.sub_status in ["active", "paused"]:
+            try:
+                subscription = Subs.objects.filter(user=obj).first()
+                if subscription:
+                    # UTC to KST (+9 hours)
+                    end_date = (
+                        subscription.end_date + timedelta(hours=9)
+                        if subscription.end_date
+                        else None
+                    )
+                    return {
+                        "end_date": end_date,
+                        "remaining_days": (
+                            subscription.remaining_bill_date.days
+                            if subscription.remaining_bill_date
+                            else None
+                        ),
+                    }
+            except Subs.DoesNotExist:
+                return None
+        return None
+
+
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField()
