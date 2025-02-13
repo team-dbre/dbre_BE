@@ -1,13 +1,11 @@
 import hashlib
 import hmac
 import logging
-import os
 
 from typing import Any, Dict
 
 from dateutil.relativedelta import relativedelta
 from django.conf import settings
-from django.http import HttpRequest
 from django.utils.timezone import now
 from rest_framework.request import Request
 
@@ -115,47 +113,32 @@ def update_payment_status(
         return {"message": f"Error: {str(e)}", "status": 500}
 
 
-def verify_signature(request: Request) -> bool:
+def verify_signature(request: Request, signature: str) -> bool:
     try:
-        # 🔹 1. 요청 바디(body) 읽기
-        body = (
-            request.body
-            if isinstance(request.body, bytes)
-            else request.body.encode("utf-8")
-        )
-        decoded_body = body.decode("utf-8")
+        # 1. request.body 읽기
+        body = request.body.decode("utf-8")
+        logger.info(f"Webhook Raw Body: {body}")
 
-        logger.info(f"✅ Webhook Raw Body: {decoded_body}")
-
-        # 🔹 2. 요청 헤더에서 x-portone-signature 가져오기
+        # 2. 요청 헤더에서 x-portone-signature 가져오기
         received_signature = request.headers.get("x-portone-signature")
         if not received_signature:
-            logger.error("❌ Missing x-portone-signature header")
+            logger.error("Missing x-portone-signature header")
             return False
 
-        # 🔹 3. HMAC SHA256 서명 생성
+        # 3. Expected Signature 생성
         expected_signature = hmac.new(
-            key=settings.IMP_WEBHOOK_SECRETE.encode(  # type: ignore
-                "utf-8"
-            ),  # 환경변수에서 Webhook Secret 가져오기
-            msg=decoded_body.encode("utf-8"),
+            key=settings.IMP_WEBHOOK_SECRETE.encode("utf-8"),  # type: ignore
+            msg=body.encode("utf-8"),
             digestmod=hashlib.sha256,
         ).hexdigest()
 
-        # 🔹 4. 로그 출력 (디버깅용)
-        logger.info(f"✅ Expected Signature: {expected_signature}")
-        logger.info(f"🚨 Received Signature: {received_signature}")
+        # 4. 로그 확인
+        logger.info(f" Expected Signature: {expected_signature}")
+        logger.info(f" Received Signature: {received_signature}")
 
-        # 🔹 5. 검증 수행
-        is_valid = hmac.compare_digest(expected_signature, received_signature)
-
-        if not is_valid:
-            logger.error("❌ Signature verification failed")
-        else:
-            logger.info("✅ Signature verification successful")
-
-        return is_valid
+        # 5. 검증 결과 반환
+        return hmac.compare_digest(expected_signature, received_signature)
 
     except Exception as e:
-        logger.exception(f"🔥 Error verifying signature: {e}")
+        logger.exception(f" Error verifying signature: {e}")
         return False
