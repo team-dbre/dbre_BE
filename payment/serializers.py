@@ -42,9 +42,29 @@ class BillingKeySerializer(serializers.ModelSerializer):
         return billing_key
 
 
+class BillingKeyUpdateSerializer(serializers.ModelSerializer):
+    """Billing Key 변경을 위한 시리얼라이저"""
+
+    user_id = serializers.UUIDField()
+    billing_key = serializers.CharField()
+
+    class Meta:
+        model = BillingKey
+        fields = ["user_id", "billing_key"]
+
+    def validate_user_id(self, value: uuid.UUID) -> uuid.UUID:
+        """유효한 사용자 ID인지 검증"""
+        if not BillingKey.objects.filter(user_id=value).exists():
+            raise serializers.ValidationError(
+                "User not found or no billing key assigned"
+            )
+        return value
+
+
 class SubscriptionPaymentSerializer(serializers.Serializer):
     """정기 결제 요청을 위한 데이터 검증"""
 
+    user_id = serializers.UUIDField()
     plan_id = serializers.IntegerField()
     billing_key = serializers.CharField()
 
@@ -113,8 +133,8 @@ class RefundSerializer(serializers.Serializer):
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """사용자 및 구독 정보 검증"""
-        request = self.context.get("request")  # ✅ DRF에서 request 가져오기
-        user = getattr(request, "user", None)  # ✅ request.user 가져오기
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
             raise serializers.ValidationError({"user_id": "로그인이 필요합니다."})
         plan_id = data.get("plan_id")

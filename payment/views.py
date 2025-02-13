@@ -28,7 +28,7 @@ from payment.services.web_hook_service import WebhookService, verify_signature
 from subscription.models import Subs
 from user.models import CustomUser
 
-from . import PORTONE_API_URL2
+from . import PORTONE_API_URL2, portone_client2
 from .serializers import (
     BillingKeySerializer,
     GetBillingKeySerializer,
@@ -43,6 +43,12 @@ from .services.payment_service import (
     RefundService,
     SubscriptionPaymentService,
     SubscriptionService,
+)
+from .utils import (
+    cancel_scheduled_payments,
+    delete_billing_key_with_retry,
+    fetch_scheduled_payments,
+    schedule_new_payment,
 )
 
 
@@ -88,6 +94,86 @@ class StoreBillingKeyView(APIView):
             return Response(
                 {"error": "Billing Key 저장 실패", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+def subscription_service(request: HttpRequest) -> HttpResponse:
+    return render(request, "update.html")
+
+
+@extend_schema(tags=["payment"])
+class UpdateBillingKeyView(APIView):
+    """Billing Key 변경 API"""
+
+    def post(self, request: Request) -> Response:
+        user_id = request.data.get("user_id")
+        new_billing_key = request.data.get("billing_key")
+        plan_id = request.data.get("plan_id")
+        amount = request.data.get("amount")
+
+        if not user_id or not new_billing_key:
+            return Response(
+                {"error": "User ID와 새로운 Billing Key가 필요합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            user = get_object_or_404(CustomUser, id=user_id)
+
+            # 기존 Billing Key 가져오기
+            try:
+                billing_key_obj = BillingKey.objects.get(user=user)
+                old_billing_key = billing_key_obj.billing_key
+                logger.info(f" 기존 Billing Key: {old_billing_key}")
+            except BillingKey.DoesNotExist:
+                logger.warning(f"기존 Billing Key가 존재하지 않음: user_id={user_id}")
+                return Response(
+                    {"error": "기존 Billing Key가 존재하지 않습니다."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # 기존 예약된 결제 조회
+            scheduled_payments = fetch_scheduled_payments(old_billing_key, plan_id)
+            logger.info(f"조회된 예약 결제 리스트: {scheduled_payments}")
+
+            # 기존 예약된 결제가 없는 경우 빌링키만 업데이트
+            if not scheduled_payments:
+                logger.info(f"기존 빌링키에 예약된 결제가 없음 빌링키만 업데이트")
+                billing_key_obj.billing_key = new_billing_key
+                billing_key_obj.save()
+
+                serializer = BillingKeySerializer(billing_key_obj)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+
+            # 예약된 결제 취소
+            cancel_scheduled_payments(old_billing_key, plan_id)
+
+            # 새로운 Billing Key로 기존 결제일 유지하면서 재등록
+            response = schedule_new_payment(
+                user, old_billing_key, new_billing_key, plan_id, amount
+            )
+            if not response:
+                raise ValueError(
+                    "새로운 Billing Key로 예약 결제를 등록하는 데 실패했습니다."
+                )
+
+            billing_key_response = delete_billing_key_with_retry(
+                old_billing_key, plan_id
+            )
+            if not billing_key_response:
+                raise ValueError("포트원 빌링키 삭제를 실패했습니다")
+
+            # Billing Key 정보 업데이트 (예약 정보 변경 후 저장)
+            billing_key_obj.billing_key = new_billing_key
+            billing_key_obj.save()
+
+            serializer = BillingKeySerializer(billing_key_obj)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Billing Key 변경 실패: {e}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
 
@@ -187,157 +273,57 @@ class GetBillingKeyView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-# @extend_schema(tags=["payment"])
-# @method_decorator(csrf_exempt, name="dispatch")
-# class PortOneWebhookView(APIView):
-#
-#     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         try:
-#             body = request.body.decode("utf-8")  # ✅ 한 번만 읽기
-#             data = json.loads(body)
-#             signature = request.headers.get("Signature")
-#
-#             if not verify_signature(request, signature):
-#                 logger.error("Webhook signature verification failed")
-#                 return Response(
-#                     {"message": "Signature verification failed"},
-#                     status=status.HTTP_400_BAD_REQUEST,
-#                 )
-#
-#             payment_id = data.get("paymentId")
-#             status_received = data.get("status")
-#             amount_received = data.get("amount")
-#
-#             if not payment_id:
-#                 logger.error("Missing paymentId in webhook data")
-#                 return Response(
-#                     {"message": "Bad Request - Missing paymentId"},
-#                     status=status.HTTP_400_BAD_REQUEST,
-#                 )
-#
-#             try:
-#                 pay_record = Pays.objects.get(imp_uid=payment_id)
-#             except Pays.DoesNotExist:
-#                 logger.error(f"Payment with imp_uid {payment_id} not found")
-#                 return Response(
-#                     {"message": "Payment not found"}, status=status.HTTP_404_NOT_FOUND
-#                 )
-#
-#             if pay_record.amount != amount_received:
-#                 logger.warning(
-#                     f"Payment amount mismatch: Expected {pay_record.amount}, Received {amount_received}"
-#                 )
-#                 return Response(
-#                     {"message": "Amount mismatch"}, status=status.HTTP_400_BAD_REQUEST
-#                 )
-#
-#             # 결제 상태 업데이트
-#             pay_record.status = status_received.upper()
-#             pay_record.save()
-#             logger.info(f"Payment {payment_id} updated successfully.")
-#
-#             return Response(
-#                 {"message": "Webhook processed successfully"}, status=status.HTTP_200_OK
-#             )
-#
-#         except json.JSONDecodeError:
-#             logger.error("Invalid JSON received in webhook")
-#             return Response(
-#                 {"message": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
-#             )
-#         except Exception as e:
-#             logger.exception(f"Unexpected error in webhook: {e}")
-#             return Response(
-#                 {"message": "Internal Server Error"},
-#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-#             )
-
-
 @extend_schema(tags=["payment"])
 @method_decorator(csrf_exempt, name="dispatch")
-class PortOneBillingWebhookView(APIView):
+class PortOneWebhookView(APIView):
+
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
-            # 🔹 Webhook 요청 검증
-            if not verify_signature(request):  # ✅ request 객체 전달
-                logger.error("Billing Webhook signature verification failed")
+            body = request.body.decode("utf-8")
+            data = json.loads(body)
+            signature = request.headers.get("Signature")
+
+            if not verify_signature(request, signature):
+                logger.error("Webhook signature verification failed")
                 return Response(
                     {"message": "Signature verification failed"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            body = request.body.decode("utf-8")
-            data = json.loads(body)
+            payment_id = data.get("paymentId")
+            status_received = data.get("status")
+            amount_received = data.get("amount")
 
-            billing_key = data.get("billingKey")
-            customer_uid = data.get("customerUid")
-            card_info = data.get("cardInfo", {})
-
-            if not billing_key or not customer_uid:
-                logger.error("Missing billingKey or customerUid in webhook data")
+            if not payment_id:
+                logger.error("Missing paymentId in webhook data")
                 return Response(
-                    {"message": "Bad Request - Missing billingKey or customerUid"},
+                    {"message": "Bad Request - Missing paymentId"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # 카드 정보 추출
-            card_name = card_info.get("cardName", "Unknown")
-            card_number = card_info.get("cardNumber", "****-****-****-****")
-
             try:
-                user = CustomUser.objects.get(id=customer_uid)
-            except CustomUser.DoesNotExist:
-                logger.error(f"User with id {customer_uid} not found")
+                pay_record = Pays.objects.get(imp_uid=payment_id)
+            except Pays.DoesNotExist:
+                logger.error(f"Payment with imp_uid {payment_id} not found")
                 return Response(
-                    {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+                    {"message": "Payment not found"}, status=status.HTTP_404_NOT_FOUND
                 )
 
-            # 기존 빌링키 존재 여부 확인
-            billing_key_obj, created = BillingKey.objects.get_or_create(user=user)
-
-            if not created:  # ✅ 이미 존재하는 빌링키인 경우 → 카드 정보만 업데이트
-                logger.info(
-                    f"Billing Key already exists for user {user.email}. Updating card info."
+            if pay_record.amount != amount_received:
+                logger.warning(
+                    f"Payment amount mismatch: Expected {pay_record.amount}, Received {amount_received}"
+                )
+                return Response(
+                    {"message": "Amount mismatch"}, status=status.HTTP_400_BAD_REQUEST
                 )
 
-                # 기존 빌링키가 같다면 카드 정보만 업데이트
-                if billing_key_obj.billing_key == billing_key:
-                    billing_key_obj.card_name = card_name
-                    billing_key_obj.card_number = card_number
-                    billing_key_obj.save(update_fields=["card_name", "card_number"])
-                    return Response(
-                        {
-                            "message": "Billing Key already exists. Card info updated.",
-                            "billingKey": billing_key,
-                            "cardName": card_name,
-                            "cardNumber": card_number,  # 마지막 4자리만 저장
-                        },
-                        status=status.HTTP_200_OK,
-                    )
-                else:
-                    logger.warning(
-                        f"User {user.email} already has a different billing key."
-                    )
-
-            # 새 빌링키 저장 (업데이트되는 경우에만)
-            billing_key_obj.billing_key = billing_key
-            billing_key_obj.card_name = card_name
-            billing_key_obj.card_number = card_number
-            billing_key_obj.created_at = now()
-            billing_key_obj.save()
-
-            logger.info(
-                f"Billing Key {billing_key} {'created' if created else 'updated'} for user {user.email}"
-            )
+            # 결제 상태 업데이트
+            pay_record.status = status_received.upper()
+            pay_record.save()
+            logger.info(f"Payment {payment_id} updated successfully.")
 
             return Response(
-                {
-                    "message": "Billing Key webhook processed successfully",
-                    "billingKey": billing_key,
-                    "cardName": card_name,
-                    "cardNumber": card_number,  # 마지막 4자리만 저장
-                },
-                status=status.HTTP_200_OK,
+                {"message": "Webhook processed successfully"}, status=status.HTTP_200_OK
             )
 
         except json.JSONDecodeError:
@@ -346,11 +332,111 @@ class PortOneBillingWebhookView(APIView):
                 {"message": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
-            logger.exception(f"Unexpected error in billing webhook: {e}")
+            logger.exception(f"Unexpected error in webhook: {e}")
             return Response(
                 {"message": "Internal Server Error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+# @extend_schema(tags=["payment"])
+# @method_decorator(csrf_exempt, name="dispatch")
+# class PortOneBillingWebhookView(APIView):
+#     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+#         try:
+#             # 🔹 Webhook 요청 검증
+#             if not verify_signature(request):  # ✅ request 객체 전달
+#                 logger.error("Billing Webhook signature verification failed")
+#                 return Response(
+#                     {"message": "Signature verification failed"},
+#                     status=status.HTTP_400_BAD_REQUEST,
+#                 )
+#
+#             body = request.body.decode("utf-8")
+#             data = json.loads(body)
+#
+#             billing_key = data.get("billingKey")
+#             customer_uid = data.get("customerUid")
+#             card_info = data.get("cardInfo", {})
+#
+#             if not billing_key or not customer_uid:
+#                 logger.error("Missing billingKey or customerUid in webhook data")
+#                 return Response(
+#                     {"message": "Bad Request - Missing billingKey or customerUid"},
+#                     status=status.HTTP_400_BAD_REQUEST,
+#                 )
+#
+#             # 카드 정보 추출
+#             card_name = card_info.get("cardName", "Unknown")
+#             card_number = card_info.get("cardNumber", "****-****-****-****")
+#
+#             try:
+#                 user = CustomUser.objects.get(id=customer_uid)
+#             except CustomUser.DoesNotExist:
+#                 logger.error(f"User with id {customer_uid} not found")
+#                 return Response(
+#                     {"message": "User not found"}, status=status.HTTP_404_NOT_FOUND
+#                 )
+#
+#             # 기존 빌링키 존재 여부 확인
+#             billing_key_obj, created = BillingKey.objects.get_or_create(user=user)
+#
+#             if not created:  # ✅ 이미 존재하는 빌링키인 경우 → 카드 정보만 업데이트
+#                 logger.info(
+#                     f"Billing Key already exists for user {user.email}. Updating card info."
+#                 )
+#
+#                 # 기존 빌링키가 같다면 카드 정보만 업데이트
+#                 if billing_key_obj.billing_key == billing_key:
+#                     billing_key_obj.card_name = card_name
+#                     billing_key_obj.card_number = card_number
+#                     billing_key_obj.save(update_fields=["card_name", "card_number"])
+#                     return Response(
+#                         {
+#                             "message": "Billing Key already exists. Card info updated.",
+#                             "billingKey": billing_key,
+#                             "cardName": card_name,
+#                             "cardNumber": card_number,  # 마지막 4자리만 저장
+#                         },
+#                         status=status.HTTP_200_OK,
+#                     )
+#                 else:
+#                     logger.warning(
+#                         f"User {user.email} already has a different billing key."
+#                     )
+#
+#             # 새 빌링키 저장 (업데이트되는 경우에만)
+#             billing_key_obj.billing_key = billing_key
+#             billing_key_obj.card_name = card_name
+#             billing_key_obj.card_number = card_number
+#             billing_key_obj.created_at = now()
+#             billing_key_obj.save()
+#
+#             logger.info(
+#                 f"Billing Key {billing_key} {'created' if created else 'updated'} for user {user.email}"
+#             )
+#
+#             return Response(
+#                 {
+#                     "message": "Billing Key webhook processed successfully",
+#                     "billingKey": billing_key,
+#                     "cardName": card_name,
+#                     "cardNumber": card_number,  # 마지막 4자리만 저장
+#                 },
+#                 status=status.HTTP_200_OK,
+#             )
+#
+#         except json.JSONDecodeError:
+#             logger.error("Invalid JSON received in webhook")
+#             return Response(
+#                 {"message": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
+#             )
+#         except Exception as e:
+#             logger.exception(f"Unexpected error in billing webhook: {e}")
+#             return Response(
+#                 {"message": "Internal Server Error"},
+#                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+#             )
 
 
 @extend_schema(tags=["payment"])
