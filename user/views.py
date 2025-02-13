@@ -1,3 +1,5 @@
+import logging
+
 from datetime import timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -6,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
 from django.utils import timezone
+from django_redis import get_redis_connection
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -51,6 +54,7 @@ from user.utils import (
     normalize_phone_number,
 )
 
+logger = logging.getLogger(__name__)
 
 @extend_schema_view(
     post=extend_schema(
@@ -215,32 +219,42 @@ class LogoutView(GenericAPIView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
+            # access token도 blacklist에 추가
+            access_token = request.auth
+            if access_token:
+                RefreshToken(access_token).blacklist()
+
+            refresh_token = serializer.validated_data["refresh_token"]
+            RefreshToken(refresh_token).blacklist()
+
             # Redis에서 토큰 삭제
             cache.delete(f"user_token:{request.user.id}")
 
-            refresh_token = serializer.validated_data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-
             response = Response(
-                {"message": "로그아웃이 완료되었습니다."}, status=status.HTTP_200_OK
+                {"message": "로그아웃이 완료되었습니다."},
+                status=status.HTTP_200_OK
             )
-
+            response["Authorization"] = ""
             response.delete_cookie("refresh_token")
 
             return response
-
+        except TokenError as e:
+            return Response(
+                {"message": "유효하지 않은 토큰입니다.", "detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         except Exception as e:
             return Response(
                 {"message": "로그아웃에 실패했습니다.", "detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_400_BAD_REQUEST
             )
 
 
 class GoogleLoginView(GenericAPIView):
     renderer_classes = [JSONRenderer]
 
-    def get_redirect_uri(self, environment: str) -> str | None:
+    @staticmethod
+    def get_redirect_uri(environment: str) -> str | None:
         redirects = {
             "backend_local": settings.GOOGLE_REDIRECT_URI,
             "frontend_local": settings.FLOCAL_GOOGLE_REDIRECT_URI,
@@ -500,7 +514,7 @@ class VerifyPhoneView(APIView):
             ).verification_checks.create(to=formatted_phone, code=code)
 
             if verification_check.status == "approved":
-                cache.set(f"phone_verified:{phone}", "true", timeout=86400)
+                cache.set(f"phone_verified:{phone}", "true", timeout=300)
                 return Response({"message": "인증이 완료되었습니다."})
             else:
                 return Response(
@@ -587,7 +601,7 @@ class UserProfileView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class TokenRefreshView(APIView):
+class TokenRefreshView(GenericAPIView):
     serializer_class = RefreshTokenSerializer
 
     @extend_schema(
@@ -607,11 +621,12 @@ class TokenRefreshView(APIView):
         },
     )
     def post(self, request: Request) -> Response:
-        serializer = self.serializer_class(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # Redis를 이용한 동시성 제어
+        redis_client = get_redis_connection("default")
 
         try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
             refresh_token = serializer.validated_data["refresh_token"]
             token = RefreshToken(refresh_token)
 
@@ -648,6 +663,7 @@ class TokenRefreshView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
         except Exception as e:
+            logger.error(f"Token blacklist failed: {str(e)}")
             return Response(
                 {"error": f"토큰 갱신 중 오류가 발생했습니다: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
