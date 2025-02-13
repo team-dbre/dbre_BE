@@ -28,7 +28,7 @@ def get_google_user_info(access_token: str) -> Dict[str, Any]:
 def normalize_phone_number(phone: str) -> str:
     """전화번호를 010-xxxx-xxxx 형식으로 정규화"""
     # 숫자만 추출
-    cleaned = ''.join(char for char in phone if char.isdigit())
+    cleaned = "".join(char for char in phone if char.isdigit())
 
     # 국가 코드(82) 제거
     if cleaned.startswith("82"):

@@ -54,7 +54,9 @@ from user.utils import (
     normalize_phone_number,
 )
 
+
 logger = logging.getLogger(__name__)
+
 
 @extend_schema_view(
     post=extend_schema(
@@ -231,8 +233,7 @@ class LogoutView(GenericAPIView):
             cache.delete(f"user_token:{request.user.id}")
 
             response = Response(
-                {"message": "로그아웃이 완료되었습니다."},
-                status=status.HTTP_200_OK
+                {"message": "로그아웃이 완료되었습니다."}, status=status.HTTP_200_OK
             )
             response["Authorization"] = ""
             response.delete_cookie("refresh_token")
@@ -241,12 +242,12 @@ class LogoutView(GenericAPIView):
         except TokenError as e:
             return Response(
                 {"message": "유효하지 않은 토큰입니다.", "detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             return Response(
                 {"message": "로그아웃에 실패했습니다.", "detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
 
