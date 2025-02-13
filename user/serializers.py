@@ -133,7 +133,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ["email", "name", "phone", "sub_status", "subscription_info"]
+        fields = ["email", "name", "phone", "img_url", "sub_status", "subscription_info"]
 
     def get_subscription_info(
         self, obj: CustomUser
