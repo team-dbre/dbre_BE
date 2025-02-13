@@ -33,7 +33,7 @@ from user.views import (
     RequestVerificationView,
     SavePhoneNumberView,
     UserRegistrationView,
-    VerifyPhoneView,
+    VerifyPhoneView, UserProfileView,
 )
 
 
@@ -97,6 +97,7 @@ user_patterns = [
     ),
     path("verify-phone/", VerifyPhoneView.as_view(), name="verify_phone"),
     path("g-phone/", SavePhoneNumberView.as_view(), name="g-phone"),
+    path("", UserProfileView.as_view(), name="user-profile"),
 ]
 
 # 메인 URL 패턴
