@@ -20,12 +20,11 @@ logger = logging.getLogger(__name__)
 class BillingKeySerializer(serializers.ModelSerializer):
     """Billing Key 저장을 위한 시리얼라이저"""
 
-    user_id = serializers.UUIDField(write_only=True)
     billing_key = serializers.CharField()
 
     class Meta:
         model = BillingKey
-        fields = ["user_id", "billing_key"]
+        fields = ["billing_key"]
 
     def validate_user_id(self, value: uuid.UUID) -> uuid.UUID:
         """유효한 사용자 ID인지 검증"""
@@ -45,7 +44,6 @@ class BillingKeySerializer(serializers.ModelSerializer):
 class BillingKeyUpdateSerializer(serializers.ModelSerializer):
     """Billing Key 변경을 위한 시리얼라이저"""
 
-    user_id = serializers.UUIDField()
     billing_key = serializers.CharField()
 
     class Meta:
@@ -74,7 +72,7 @@ class SubscriptionPaymentSerializer(serializers.Serializer):
 
         user = request.user
 
-        # ✅ 사용자의 빌링키 자동 조회
+        # 사용자의 빌링키 자동 조회
         try:
             billing_key_obj = BillingKey.objects.get(user=user)
             billing_key = billing_key_obj.billing_key

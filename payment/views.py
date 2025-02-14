@@ -242,9 +242,7 @@ class GetBillingKeyView(APIView):
 
     serializer_class = GetBillingKeySerializer
 
-    def get(
-        self, request: Request, user_id: str, *args: Any, **kwargs: Any
-    ) -> Response:
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
 
         # 사용자 조회
         user = request.user
@@ -253,13 +251,13 @@ class GetBillingKeyView(APIView):
         # Billing Key 조회
         billing_key = BillingKey.objects.filter(user=user).first()
         if not billing_key:
-            logger.warning(f"[get_billing_key] Billing Key 없음 - User ID: {user_id}")
+            logger.warning(f"[get_billing_key] Billing Key 없음 - User ID: {user.id}")
             return Response(
                 {"error": "등록된 Billing Key가 없습니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        logger.info(f"[get_billing_key] Billing Key 조회 성공 - User ID: {user_id}")
+        logger.info(f"[get_billing_key] Billing Key 조회 성공 - User ID: {user.id}")
 
         serializer = self.serializer_class(billing_key)
         return Response(serializer.data, status=status.HTTP_200_OK)
