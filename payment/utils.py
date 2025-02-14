@@ -122,7 +122,7 @@ def delete_billing_key_with_retry(
 
     except PgProviderError as e:
         if "P759" in str(e):
-            logger.warning(f"⚠P759 발생 - 빌링 키가 이미 삭제됨: {billing_key}")
+            logger.warning(f"P759 발생 - 빌링 키가 이미 삭제됨: {billing_key}")
             return True  # 이미 삭제된 것으로 간주
         logger.error(f"빌링 키 삭제 중 오류 발생: {e}")
         return False
