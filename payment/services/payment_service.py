@@ -444,8 +444,8 @@ class RefundService:
                         }
 
                     payment.status = "REFUNDED"
-                    payment.amount -= Decimal(refund_amount)
-                    payment.save(update_fields=["status", "amount"])
+                    payment.refund_amount = Decimal(refund_amount)
+                    payment.save(update_fields=["status", "refund_amount"])
 
                     return {
                         "message": "환불 및 빌링 해지 성공",

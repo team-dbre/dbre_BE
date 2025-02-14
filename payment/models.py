@@ -19,6 +19,7 @@ class Pays(models.Model):
     imp_uid = models.CharField(max_length=255, unique=True)
     merchant_uid = models.CharField(max_length=255, unique=True)
     amount = models.DecimalField(decimal_places=2, max_digits=10)
+    refund_amount = models.DecimalField(decimal_places=2, max_digits=10, null=True)
     status = models.CharField(max_length=10, choices=pays_choices, default="PAID")
     paid_at = models.DateTimeField(auto_now_add=True)
 
