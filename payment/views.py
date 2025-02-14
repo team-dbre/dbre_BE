@@ -30,7 +30,6 @@ from user.models import CustomUser
 
 from . import PORTONE_API_URL2, portone_client2
 from .serializers import (
-    BillingKeyDeleteSerializer,
     BillingKeySerializer,
     GetBillingKeySerializer,
     PauseSubscriptionSerializer,
