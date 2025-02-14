@@ -30,6 +30,7 @@ from user.models import CustomUser
 
 from . import PORTONE_API_URL2, portone_client2
 from .serializers import (
+    BillingKeyDeleteSerializer,
     BillingKeySerializer,
     GetBillingKeySerializer,
     PauseSubscriptionSerializer,
@@ -89,6 +90,8 @@ class StoreBillingKeyView(APIView):
                 {
                     "message": "Billing Key 저장 성공",
                     "billing_key": billing_key.billing_key,
+                    "card_name": billing_key.card_name,
+                    "card_number": billing_key.card_number,
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -99,6 +102,35 @@ class StoreBillingKeyView(APIView):
                 {"error": "Billing Key 저장 실패", "details": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+    def delete(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+
+        user = request.user
+        billing_key_obj = BillingKey.objects.filter(user=user).first()
+        if not billing_key_obj:
+            logger.warning(f"Billing Key 없음 - User ID: {user.id}")
+            return Response(
+                {"error": "삭제할 Billing Key가 존재하지 않습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        billing_key = billing_key_obj.billing_key
+
+        reason = "사용자 요청으로 인한 삭제"
+
+        response = delete_billing_key_with_retry(billing_key, reason)
+        if not response:
+            logger.error(f" DeleteBillingKey 빌링키 삭제 실패 - User ID: {user.id}")
+            return Response(
+                {"error": "Billing Key 삭제 실패"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        billing_key_obj.delete()
+        logger.info(f"빌링키 삭제 성공 {user.id}")
+
+        return Response(
+            {"message": "빌링키 삭제 성공"}, status=status.HTTP_204_NO_CONTENT
+        )
 
 
 def subscription_service(request: HttpRequest) -> HttpResponse:
@@ -113,6 +145,12 @@ class UpdateBillingKeyView(APIView):
     serializer_class = BillingKeySerializer
 
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
         new_billing_key = request.data.get("billing_key")
         plan_id = request.data.get("plan_id")
         amount = request.data.get("amount")
