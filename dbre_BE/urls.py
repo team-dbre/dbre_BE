@@ -55,7 +55,7 @@ payment_patterns = [
         name="request_subscription_payment",
     ),
     path(
-        "billing-key/<str:user_id>/",
+        "billing-key/",
         GetBillingKeyView.as_view(),
         name="get_billing_key",
     ),

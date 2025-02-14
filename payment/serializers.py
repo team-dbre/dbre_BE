@@ -20,12 +20,11 @@ logger = logging.getLogger(__name__)
 class BillingKeySerializer(serializers.ModelSerializer):
     """Billing Key 저장을 위한 시리얼라이저"""
 
-    user_id = serializers.UUIDField(write_only=True)
     billing_key = serializers.CharField()
 
     class Meta:
         model = BillingKey
-        fields = ["user_id", "billing_key"]
+        fields = ["billing_key"]
 
     def validate_user_id(self, value: uuid.UUID) -> uuid.UUID:
         """유효한 사용자 ID인지 검증"""
@@ -35,7 +34,7 @@ class BillingKeySerializer(serializers.ModelSerializer):
 
     def create(self, validated_data: Dict[str, Any]) -> BillingKey:
         """Billing Key 저장 로직"""
-        user = CustomUser.objects.get(id=validated_data["user_id"])
+        user = self.context["request"].user
         billing_key, _ = BillingKey.objects.update_or_create(
             user=user, defaults={"billing_key": validated_data["billing_key"]}
         )
@@ -45,7 +44,6 @@ class BillingKeySerializer(serializers.ModelSerializer):
 class BillingKeyUpdateSerializer(serializers.ModelSerializer):
     """Billing Key 변경을 위한 시리얼라이저"""
 
-    user_id = serializers.UUIDField()
     billing_key = serializers.CharField()
 
     class Meta:
@@ -64,18 +62,22 @@ class BillingKeyUpdateSerializer(serializers.ModelSerializer):
 class SubscriptionPaymentSerializer(serializers.Serializer):
     """정기 결제 요청을 위한 데이터 검증"""
 
-    user_id = serializers.UUIDField()
     plan_id = serializers.IntegerField()
-    billing_key = serializers.CharField()
 
     def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """사용자 및 요금제 검증"""
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError({"user": "User authentication required"})
 
-        # 사용자 확인
+        user = request.user
+
+        # 사용자의 빌링키 자동 조회
         try:
-            user = CustomUser.objects.get(id=data["user_id"])
-        except CustomUser.DoesNotExist:
-            raise serializers.ValidationError({"user_id": "User not found"})
+            billing_key_obj = BillingKey.objects.get(user=user)
+            billing_key = billing_key_obj.billing_key
+        except BillingKey.DoesNotExist:
+            raise serializers.ValidationError({"billing_key": "Billing Key not found"})
 
         # 플랜 확인
         try:
@@ -83,25 +85,25 @@ class SubscriptionPaymentSerializer(serializers.Serializer):
         except Plans.DoesNotExist:
             raise serializers.ValidationError({"plan_id": "Plan not found"})
 
-        # Billing Key 확인
-        try:
-            billing_key_obj = BillingKey.objects.get(user=user)
-            if billing_key_obj.billing_key != data["billing_key"]:
-                raise serializers.ValidationError(
-                    {"billing_key": "Invalid billing key"}
-                )
-        except BillingKey.DoesNotExist:
-            raise serializers.ValidationError({"billing_key": "Billing Key not found"})
+        # # Billing Key 확인
+        # try:
+        #     billing_key_obj = BillingKey.objects.get(user=user)
+        #     if billing_key_obj.billing_key != data["billing_key"]:
+        #         raise serializers.ValidationError(
+        #             {"billing_key": "Invalid billing key"}
+        #         )
+        # except BillingKey.DoesNotExist:
+        #     raise serializers.ValidationError({"billing_key": "Billing Key not found"})
 
         data["user"] = user
         data["plan"] = plan
+        data["billing_key"] = billing_key
         return data
 
 
 class GetBillingKeySerializer(serializers.ModelSerializer):
     """Get Billing Key 직렬화 시리얼라이저"""
 
-    user_id = serializers.UUIDField(source="user.id", read_only=True)
     billing_key = serializers.CharField(read_only=True)
     created_at = serializers.DateTimeField(read_only=True)
 

@@ -63,13 +63,13 @@ class LoginSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         data = super().validate(attrs)
-        assert self.user is not None
+        # assert self.user is not None
 
         return {
             "message": "로그인이 완료되었습니다.",
             "access_token": data["access"],
             "refresh_token": data["refresh"],
-            "user_id": str(self.user.id),
+            # "user_id": str(self.user.id),
         }
 
 
@@ -90,7 +90,7 @@ class TokenResponseSerializer(serializers.Serializer):
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()
     phone = serializers.BooleanField()
-    user_id = serializers.CharField()
+    # user_id = serializers.CharField()
 
 
 class GoogleCallbackResponseSerializer(serializers.Serializer):
