@@ -1,6 +1,12 @@
-from django.contrib.auth import authenticate
+from datetime import datetime, timedelta
+from typing import Dict, Optional, Union
+
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from subscription.models import Subs
 
 from .models import CustomUser
 from .utils import normalize_phone_number
@@ -58,7 +64,33 @@ class LoginSerializer(TokenObtainPairSerializer):
     )
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
+        # 이메일 존재 여부 먼저 확인
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=attrs["email"])
+
+            # is_active 체크
+            if not user.is_active:
+                raise serializers.ValidationError(
+                    "비활성화된 계정입니다. 관리자나 고객센터에 문의해주세요."
+                )
+
+            # 구글 소셜 로그인 유저 체크
+            if user.provider == "google":
+                raise serializers.ValidationError(
+                    "구글 소셜 로그인으로 가입된 계정입니다. 구글 로그인을 이용해주세요."
+                )
+
+            # 비밀번호 검증
+            if not user.check_password(attrs["password"]):
+                raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
+
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError("입력된 정보로 가입된 이력이 없습니다.")
+
+        # 검증이 성공하면 토큰 발급
         data = super().validate(attrs)
+
         return {
             "message": "로그인이 완료되었습니다.",
             "access_token": data["access"],
@@ -122,3 +154,47 @@ class PhoneVerificationConfirmSerializer(serializers.Serializer):
 
 class PhoneNumberSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    subscription_info = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = [
+            "email",
+            "name",
+            "phone",
+            "img_url",
+            "sub_status",
+            "subscription_info",
+        ]
+
+    def get_subscription_info(
+        self, obj: CustomUser
+    ) -> Optional[Dict[str, Optional[Union[datetime, int]]]]:
+        if obj.sub_status in ["active", "paused"]:
+            try:
+                subscription = Subs.objects.filter(user=obj).first()
+                if subscription:
+                    # UTC to KST (+9 hours)
+                    end_date = (
+                        subscription.end_date + timedelta(hours=9)
+                        if subscription.end_date
+                        else None
+                    )
+                    return {
+                        "end_date": end_date,
+                        "remaining_days": (
+                            subscription.remaining_bill_date.days
+                            if subscription.remaining_bill_date
+                            else None
+                        ),
+                    }
+            except Subs.DoesNotExist:
+                return None
+        return None
+
+
+class RefreshTokenSerializer(serializers.Serializer):
+    refresh_token = serializers.CharField()

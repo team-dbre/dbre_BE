@@ -10,11 +10,12 @@ from admin_api.views import CreateAdminView
 from payment.views import (
     GetBillingKeyView,
     PauseSubscriptionView,
-    PortOneBillingWebhookView,
+    PortOneWebhookView,
     RefundSubscriptionView,
     RequestSubscriptionPaymentView,
     ResumeSubscriptionView,
     StoreBillingKeyView,
+    UpdateBillingKeyView,
 )
 from plan.views import (
     PlanActivateView,
@@ -22,6 +23,7 @@ from plan.views import (
     PlanDetailView,
     PlanListCreateView,
 )
+from reviews.views import ReviewCreateView
 from subscription.views import SubscriptionView, SusHistoryView
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
@@ -32,6 +34,8 @@ from user.views import (
     LogoutView,
     RequestVerificationView,
     SavePhoneNumberView,
+    TokenRefreshView,
+    UserProfileView,
     UserRegistrationView,
     VerifyPhoneView,
 )
@@ -52,19 +56,18 @@ payment_patterns = [
         name="request_subscription_payment",
     ),
     path(
-        "billing-key/<str:user_id>/",
+        "billing-key/",
         GetBillingKeyView.as_view(),
         name="get_billing_key",
     ),
-    path(
-        "billing/webhook/",
-        PortOneBillingWebhookView.as_view(),
-        name="portone_billing_webhook",
-    ),
+    path("webhook/", PortOneWebhookView.as_view(), name="portone_webhook"),
     path("billing-key/", StoreBillingKeyView.as_view(), name="store-billing-key"),
     path("refund/", RefundSubscriptionView.as_view(), name="refund_subscription"),
     path("pause/", PauseSubscriptionView.as_view(), name="pause_subscription"),
     path("resume/", ResumeSubscriptionView.as_view(), name="resume_subscription"),
+    path(
+        "update-billing-key/", UpdateBillingKeyView.as_view(), name="update_billing_key"
+    ),
 ]
 
 
@@ -97,6 +100,13 @@ user_patterns = [
     ),
     path("verify-phone/", VerifyPhoneView.as_view(), name="verify_phone"),
     path("g-phone/", SavePhoneNumberView.as_view(), name="g-phone"),
+    path("", UserProfileView.as_view(), name="user-profile"),
+    path("refresh_token/", TokenRefreshView.as_view(), name="refresh-token"),
+]
+
+# review 관련 URL 패턴
+review_patterns = [
+    path("", ReviewCreateView.as_view(), name="review_subscription"),
 ]
 
 # Admin 관련 URL 패턴
@@ -119,6 +129,7 @@ urlpatterns = [
     path("api/plans/", include((plan_patterns, "plan"))),
     path("api/subscriptions/", include((subs_patterns, "subscription"))),
     path("api/user/", include((user_patterns, "user"))),
+    path("api/review/", include((review_patterns, "reviews"))),
     path("api/admin/", include((admin_patterns, "admin_api"))),
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),

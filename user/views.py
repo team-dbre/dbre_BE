@@ -1,3 +1,5 @@
+import logging
+
 from datetime import timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
@@ -6,6 +8,7 @@ from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
 from django.utils import timezone
+from django_redis import get_redis_connection
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
     OpenApiExample,
@@ -14,14 +17,14 @@ from drf_spectacular.utils import (
     extend_schema,
     extend_schema_view,
 )
-from rest_framework import status
+from rest_framework import serializers, status
 from rest_framework.generics import CreateAPIView, GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from twilio.base.exceptions import TwilioRestException
@@ -39,7 +42,9 @@ from user.serializers import (
     PhoneNumberSerializer,
     PhoneVerificationConfirmSerializer,
     PhoneVerificationRequestSerializer,
+    RefreshTokenSerializer,
     TokenResponseSerializer,
+    UserProfileSerializer,
     UserRegistrationSerializer,
 )
 from user.utils import (
@@ -48,6 +53,9 @@ from user.utils import (
     get_google_user_info,
     normalize_phone_number,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 @extend_schema_view(
@@ -173,34 +181,46 @@ class LoginView(TokenObtainPairView):
         },
     )
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        response = super().post(request, *args, **kwargs)
+        try:
+            response = super().post(request, *args, **kwargs)
 
-        if response.status_code == 200:
-            # 토큰 정보 가져오기
-            access_token = response.data.get("access_token")
-            refresh_token = response.data.get("refresh_token")
+            if response.status_code == 200:
+                # 토큰 정보 가져오기
+                access_token = response.data.get("access_token")
+                refresh_token = response.data.get("refresh_token")
 
-            # Authorization 헤더 설정
-            response["Authorization"] = f"Bearer {access_token}"
+                # Authorization 헤더 설정
+                response["Authorization"] = f"Bearer {access_token}"
 
-            # 시리얼라이저에서 사용자 정보 가져오기
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.user  # 인증된 사용자
+                # 시리얼라이저에서 사용자 정보 가져오기
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                user = serializer.user  # 인증된 사용자
 
-            # 수동으로 user_logged_in 시그널 발생
-            user_logged_in.send(sender=user.__class__, request=request, user=user)
+                # 수동으로 user_logged_in 시그널 발생
+                user_logged_in.send(sender=user.__class__, request=request, user=user)
 
-            # Redis에 토큰 저장
-            cache.set(
-                f"user_token:{user.id}",
-                {"access_token": access_token, "refresh_token": refresh_token},
-                timeout=cast(
-                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
-                ).total_seconds(),
+                # Redis에 토큰 저장
+                cache.set(
+                    f"user_token:{user.id}",
+                    {"access_token": access_token, "refresh_token": refresh_token},
+                    timeout=cast(
+                        timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                    ).total_seconds(),
+                )
+
+            return response
+
+        except serializers.ValidationError as e:
+
+            error_message = e.detail
+
+            if isinstance(error_message, dict) and "non_field_errors" in error_message:
+                error_message = error_message["non_field_errors"][0]
+
+            return Response(
+                {"message": error_message}, status=status.HTTP_400_BAD_REQUEST
             )
-
-        return response
 
 
 @extend_schema(tags=["user"])
@@ -213,21 +233,29 @@ class LogoutView(GenericAPIView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
-            # Redis에서 토큰 삭제
-            cache.delete(f"user_token:{request.user.id}")
+            # access token도 blacklist에 추가
+            access_token = request.auth
+            if access_token:
+                RefreshToken(access_token).blacklist()
 
             refresh_token = serializer.validated_data["refresh_token"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
+            RefreshToken(refresh_token).blacklist()
+
+            # Redis에서 토큰 삭제
+            cache.delete(f"user_token:{request.user.id}")
 
             response = Response(
                 {"message": "로그아웃이 완료되었습니다."}, status=status.HTTP_200_OK
             )
-
+            response["Authorization"] = ""
             response.delete_cookie("refresh_token")
 
             return response
-
+        except TokenError as e:
+            return Response(
+                {"message": "유효하지 않은 토큰입니다.", "detail": str(e)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except Exception as e:
             return Response(
                 {"message": "로그아웃에 실패했습니다.", "detail": str(e)},
@@ -238,7 +266,8 @@ class LogoutView(GenericAPIView):
 class GoogleLoginView(GenericAPIView):
     renderer_classes = [JSONRenderer]
 
-    def get_redirect_uri(self, environment: str) -> str | None:
+    @staticmethod
+    def get_redirect_uri(environment: str) -> str | None:
         redirects = {
             "backend_local": settings.GOOGLE_REDIRECT_URI,
             "frontend_local": settings.FLOCAL_GOOGLE_REDIRECT_URI,
@@ -323,6 +352,16 @@ class GoogleLoginView(GenericAPIView):
 
             try:
                 user = CustomUser.objects.get(email=user_info["email"])
+
+                # is_active 체크 추가
+                if not user.is_active:
+                    return Response(
+                        {
+                            "message": "비활성화된 계정입니다. 관리자나 고객센터에 문의해주세요."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 if user.provider != "google":
                     return Response(
                         {
@@ -439,7 +478,7 @@ class RequestVerificationView(APIView):
 
         try:
             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-            verification = client.verify.v2.services(
+            client.verify.v2.services(
                 settings.TWILIO_VERIFY_SERVICE_SID
             ).verifications.create(
                 to=formatted_phone, channel="sms", locale="ko"  # 한국어 메시지 설정
@@ -498,7 +537,7 @@ class VerifyPhoneView(APIView):
             ).verification_checks.create(to=formatted_phone, code=code)
 
             if verification_check.status == "approved":
-                cache.set(f"phone_verified:{phone}", "true", timeout=86400)
+                cache.set(f"phone_verified:{phone}", "true", timeout=300)
                 return Response({"message": "인증이 완료되었습니다."})
             else:
                 return Response(
@@ -562,106 +601,94 @@ class SavePhoneNumberView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-# twilio active number 구매 버전
-# class RequestVerificationView(APIView):
-#     serializer_class = PhoneVerificationRequestSerializer
-#
-#     @extend_schema(
-#         tags=["user"],
-#         summary="전화번호 인증번호 요청",
-#         description="전화번호를 입력받아 인증번호를 SMS로 발송합니다.",
-#         request=PhoneVerificationRequestSerializer,
-#         responses={
-#             200: OpenApiResponse(
-#                 description="인증번호 발송 성공",
-#                 response={
-#                     "type": "object",
-#                     "properties": {"message": {"type": "string"}},
-#                 },
-#             ),
-#             400: OpenApiResponse(
-#                 description="잘못된 요청",
-#                 response={
-#                     "type": "object",
-#                     "properties": {"error": {"type": "string"}},
-#                 },
-#             ),
-#         },
-#     )
-#     def post(self, request: Request) -> Response:
-#         serializer = self.serializer_class(data=request.data)
-#         if not serializer.is_valid():
-#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-#
-#         phone = serializer.validated_data["phone"]
-#         formatted_phone = format_phone_for_twilio(
-#             phone
-#         )  # 010-xxxx-xxxx를 +8210xxxxxxxx로 변환
-#         verification_code = "".join([str(random.randint(0, 9)) for _ in range(6)])
-#
-#         cache.set(f"phone_verification:{phone}", verification_code, timeout=300)
-#
-#         try:
-#             client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
-#             client.messages.create(
-#                 body=f"인증번호: {verification_code}",
-#                 from_=settings.TWILIO_PHONE_NUMBER,
-#                 to=formatted_phone,
-#             )
-#             return Response({"message": "인증번호가 발송되었습니다."})
-#         except TwilioRestException as e:
-#             error_message = f"SMS 발송 실패: {str(e)}"
-#             return Response(
-#                 {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
-#             )
-#
-#
-# class VerifyPhoneView(APIView):
-#     serializer_class = PhoneVerificationConfirmSerializer
-#
-#     @extend_schema(
-#         tags=["user"],
-#         summary="전화번호 인증번호 확인",
-#         description="전화번호와 인증번호를 입력받아 인증을 진행합니다.",
-#         request=PhoneVerificationConfirmSerializer,
-#         responses={
-#             200: OpenApiResponse(
-#                 description="인증 성공",
-#                 response={
-#                     "type": "object",
-#                     "properties": {"message": {"type": "string"}},
-#                 },
-#             ),
-#             400: OpenApiResponse(
-#                 description="잘못된 요청",
-#                 response={
-#                     "type": "object",
-#                     "properties": {"error": {"type": "string"}},
-#                 },
-#             ),
-#         },
-#     )
-#     def post(self, request: Request) -> Response:
-#         serializer = self.serializer_class(data=request.data)
-#         if not serializer.is_valid():
-#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-#
-#         phone = serializer.validated_data["phone"]
-#         code = serializer.validated_data["code"]
-#
-#         stored_code = cache.get(f"phone_verification:{phone}")
-#
-#         if not stored_code:
-#             return Response(
-#                 {"error": "인증번호가 만료되었습니다."},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#
-#         if code != stored_code:
-#             return Response(
-#                 {"error": "잘못된 인증번호입니다."}, status=status.HTTP_400_BAD_REQUEST
-#             )
-#
-#         cache.set(f"phone_verified:{phone}", "true", timeout=86400)
-#
-#         return Response({"message": "인증이 완료되었습니다."})
+@extend_schema_view(
+    get=extend_schema(
+        tags=["user"],
+        summary="내 정보 조회",
+        description="로그인된 사용자의 프로필 정보를 조회합니다.",
+        responses={
+            200: OpenApiResponse(
+                response=UserProfileSerializer, description="사용자 정보 조회 성공"
+            ),
+            401: OpenApiResponse(description="인증되지 않은 사용자"),
+        },
+    )
+)
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = UserProfileSerializer
+
+    def get(self, request: Request) -> Response:
+        user = request.user
+        serializer = self.serializer_class(user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class TokenRefreshView(GenericAPIView):
+    serializer_class = RefreshTokenSerializer
+
+    @extend_schema(
+        tags=["user"],
+        summary="액세스 토큰 갱신",
+        description="리프레시 토큰을 사용하여 새로운 액세스 토큰을 발급합니다.",
+        request=RefreshTokenSerializer,
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "access_token": {"type": "string"},
+                    "refresh_token": {"type": "string"},
+                    "message": {"type": "string"},
+                },
+            }
+        },
+    )
+    def post(self, request: Request) -> Response:
+        # Redis를 이용한 동시성 제어
+        redis_client = get_redis_connection("default")
+
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            refresh_token = serializer.validated_data["refresh_token"]
+            token = RefreshToken(refresh_token)
+
+            # 새로운 액세스 토큰과 리프레시 토큰 생성
+            access_token = str(token.access_token)
+            new_refresh_token = str(token)
+
+            # Redis에 새로운 토큰 정보 업데이트
+            user_id = token.payload.get("user_id")
+            cache.set(
+                f"user_token:{user_id}",
+                {"access_token": access_token, "refresh_token": new_refresh_token},
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
+            )
+
+            response = Response(
+                {
+                    "access_token": access_token,
+                    "refresh_token": new_refresh_token,
+                    "message": "토큰이 성공적으로 갱신되었습니다.",
+                },
+                status=status.HTTP_200_OK,
+            )
+
+            # Authorization 헤더 설정
+            response["Authorization"] = f"Bearer {access_token}"
+
+            return response
+
+        except TokenError:
+            return Response(
+                {"error": "유효하지 않은 리프레시 토큰입니다."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        except Exception as e:
+            logger.error(f"Token blacklist failed: {str(e)}")
+            return Response(
+                {"error": f"토큰 갱신 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )

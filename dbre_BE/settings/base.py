@@ -24,6 +24,7 @@ IMP_STORE_ID = os.getenv("STORE_ID")
 IMP_API_URL = "https://api.portone.io/"
 IMP_CHANNEL_KEY = "channel-key-4ac61816-307a-4820-9e6d-98e4df50a949"
 IMP_WEBHOOK_SECRETE = os.getenv("WEB_HOOK_SECRET")
+PORTONE_CHANNEL_KEY = os.getenv("PORTONE_CHANNEL_KEY")
 
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
@@ -55,6 +56,7 @@ INSTALLED_APPS = [
     "user",
     "plan",
     "allauth",
+    "reviews",
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
@@ -139,7 +141,7 @@ AUTHENTICATION_BACKENDS = [
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    "ROTATE_REFRESH_TOKENS": False,
+    "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": SECRET_KEY,
@@ -188,6 +190,7 @@ SPECTACULAR_SETTINGS = {
         {"name": "payment", "description": "Payment related operations"},
         {"name": "subscription", "description": "Subscription related operations"},
         {"name": "plan", "description": "Plan related operations"},
+        {"name": "review", "description": "Review related operations"},
         {"name": "term", "description": "Term related operations"},
         {"name": "admin", "description": "Admin related operations"},
     ],
