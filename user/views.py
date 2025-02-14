@@ -17,7 +17,7 @@ from drf_spectacular.utils import (
     extend_schema,
     extend_schema_view,
 )
-from rest_framework import status, serializers
+from rest_framework import serializers, status
 from rest_framework.generics import CreateAPIView, GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import JSONRenderer
@@ -211,20 +211,15 @@ class LoginView(TokenObtainPairView):
 
             return response
 
-
         except serializers.ValidationError as e:
 
             error_message = e.detail
 
-            if isinstance(error_message, dict) and 'non_field_errors' in error_message:
-                error_message = error_message['non_field_errors'][0]
+            if isinstance(error_message, dict) and "non_field_errors" in error_message:
+                error_message = error_message["non_field_errors"][0]
 
             return Response(
-
-                {"message": error_message},
-
-                status=status.HTTP_400_BAD_REQUEST
-
+                {"message": error_message}, status=status.HTTP_400_BAD_REQUEST
             )
 
 
@@ -357,6 +352,16 @@ class GoogleLoginView(GenericAPIView):
 
             try:
                 user = CustomUser.objects.get(email=user_info["email"])
+
+                # is_active 체크 추가
+                if not user.is_active:
+                    return Response(
+                        {
+                            "message": "비활성화된 계정입니다. 관리자나 고객센터에 문의해주세요."
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
                 if user.provider != "google":
                     return Response(
                         {
@@ -668,7 +673,7 @@ class TokenRefreshView(GenericAPIView):
                     "refresh_token": new_refresh_token,
                     "message": "토큰이 성공적으로 갱신되었습니다.",
                 },
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
             # Authorization 헤더 설정

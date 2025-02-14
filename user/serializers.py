@@ -67,13 +67,26 @@ class LoginSerializer(TokenObtainPairSerializer):
         # 이메일 존재 여부 먼저 확인
         User = get_user_model()
         try:
-            user = User.objects.get(email=attrs['email'])
+            user = User.objects.get(email=attrs["email"])
+
+            # is_active 체크
+            if not user.is_active:
+                raise serializers.ValidationError(
+                    "비활성화된 계정입니다. 관리자나 고객센터에 문의해주세요."
+                )
+
+            # 구글 소셜 로그인 유저 체크
+            if user.provider == "google":
+                raise serializers.ValidationError(
+                    "구글 소셜 로그인으로 가입된 계정입니다. 구글 로그인을 이용해주세요."
+                )
+
+            # 비밀번호 검증
+            if not user.check_password(attrs["password"]):
+                raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
+
         except ObjectDoesNotExist:
             raise serializers.ValidationError("입력된 정보로 가입된 이력이 없습니다.")
-
-        # 비밀번호 검증
-        if not user.check_password(attrs['password']):
-            raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
 
         # 검증이 성공하면 토큰 발급
         data = super().validate(attrs)
