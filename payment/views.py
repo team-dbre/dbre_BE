@@ -65,11 +65,15 @@ def subscription_payment_page(request: HttpRequest) -> HttpResponse:
 class StoreBillingKeyView(APIView):
     """포트원 Billing Key 저장 API"""
 
+    permission_classes = [IsAuthenticated]
+
     serializer_class = BillingKeySerializer
 
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         """Billing Key 저장 로직"""
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -105,20 +109,16 @@ def subscription_service(request: HttpRequest) -> HttpResponse:
 class UpdateBillingKeyView(APIView):
     """Billing Key 변경 API"""
 
-    def post(self, request: Request) -> Response:
-        user_id = request.data.get("user_id")
+    permission_classes = [IsAuthenticated]
+    serializer_class = BillingKeySerializer
+
+    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         new_billing_key = request.data.get("billing_key")
         plan_id = request.data.get("plan_id")
         amount = request.data.get("amount")
 
-        if not user_id or not new_billing_key:
-            return Response(
-                {"error": "User ID와 새로운 Billing Key가 필요합니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         try:
-            user = get_object_or_404(CustomUser, id=user_id)
+            user = request.user
 
             # 기존 Billing Key 가져오기
             try:
@@ -126,7 +126,7 @@ class UpdateBillingKeyView(APIView):
                 old_billing_key = billing_key_obj.billing_key
                 logger.info(f" 기존 Billing Key: {old_billing_key}")
             except BillingKey.DoesNotExist:
-                logger.warning(f"기존 Billing Key가 존재하지 않음: user_id={user_id}")
+                logger.warning(f"기존 Billing Key가 존재하지 않음: user_id={user.id}")
                 return Response(
                     {"error": "기존 Billing Key가 존재하지 않습니다."},
                     status=status.HTTP_404_NOT_FOUND,
@@ -181,14 +181,16 @@ class UpdateBillingKeyView(APIView):
 class RequestSubscriptionPaymentView(APIView):
     """포트원 SDK를 사용한 정기 결제 API"""
 
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     serializer_class = SubscriptionPaymentSerializer
 
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         logger.info("[request_subscription_payment] 정기 결제 요청 수신")
 
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -236,27 +238,17 @@ class RequestSubscriptionPaymentView(APIView):
 class GetBillingKeyView(APIView):
     """특정 사용자의 Billing Key 조회 API"""
 
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     serializer_class = GetBillingKeySerializer
 
     def get(
         self, request: Request, user_id: str, *args: Any, **kwargs: Any
     ) -> Response:
-        logger.info(f"[get_billing_key] Billing Key 조회 요청 - User ID: {user_id}")
-
-        # UUID 형식 검증
-        try:
-            user_uuid = uuid.UUID(user_id)
-        except ValueError:
-            logger.error(f"[get_billing_key] 잘못된 UUID 형식 - User ID: {user_id}")
-            return Response(
-                {"error": "잘못된 사용자 ID 형식입니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
 
         # 사용자 조회
-        user = get_object_or_404(CustomUser, id=user_uuid)
+        user = request.user
+        logger.info(f"[get_billing_key] Billing Key 조회 요청 - User ID: {user.id}")
 
         # Billing Key 조회
         billing_key = BillingKey.objects.filter(user=user).first()
