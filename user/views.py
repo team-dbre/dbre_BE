@@ -176,7 +176,7 @@ class LoginView(TokenObtainPairView):
                     "message": {"type": "string"},
                     "access_token": {"type": "string"},
                     "refresh_token": {"type": "string"},
-                    "user_id": {"type": "string"},
+                    # "user_id": {"type": "string"},
                 },
             }
         },
@@ -385,7 +385,7 @@ class GoogleLoginView(GenericAPIView):
                     "access_token": access_token,
                     "refresh_token": refresh_token,
                     "phone": bool(user.phone),
-                    "user_id": user.id,
+                    # "user_id": user.id,
                 },
                 status=status.HTTP_200_OK,
             )
