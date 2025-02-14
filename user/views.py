@@ -17,7 +17,7 @@ from drf_spectacular.utils import (
     extend_schema,
     extend_schema_view,
 )
-from rest_framework import status
+from rest_framework import status, serializers
 from rest_framework.generics import CreateAPIView, GenericAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import JSONRenderer
@@ -176,40 +176,56 @@ class LoginView(TokenObtainPairView):
                     "message": {"type": "string"},
                     "access_token": {"type": "string"},
                     "refresh_token": {"type": "string"},
-                    # "user_id": {"type": "string"},
                 },
             }
         },
     )
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        response = super().post(request, *args, **kwargs)
+        try:
+            response = super().post(request, *args, **kwargs)
 
-        if response.status_code == 200:
-            # 토큰 정보 가져오기
-            access_token = response.data.get("access_token")
-            refresh_token = response.data.get("refresh_token")
+            if response.status_code == 200:
+                # 토큰 정보 가져오기
+                access_token = response.data.get("access_token")
+                refresh_token = response.data.get("refresh_token")
 
-            # Authorization 헤더 설정
-            response["Authorization"] = f"Bearer {access_token}"
+                # Authorization 헤더 설정
+                response["Authorization"] = f"Bearer {access_token}"
 
-            # 시리얼라이저에서 사용자 정보 가져오기
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            user = serializer.user  # 인증된 사용자
+                # 시리얼라이저에서 사용자 정보 가져오기
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                user = serializer.user  # 인증된 사용자
 
-            # 수동으로 user_logged_in 시그널 발생
-            user_logged_in.send(sender=user.__class__, request=request, user=user)
+                # 수동으로 user_logged_in 시그널 발생
+                user_logged_in.send(sender=user.__class__, request=request, user=user)
 
-            # Redis에 토큰 저장
-            cache.set(
-                f"user_token:{user.id}",
-                {"access_token": access_token, "refresh_token": refresh_token},
-                timeout=cast(
-                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
-                ).total_seconds(),
+                # Redis에 토큰 저장
+                cache.set(
+                    f"user_token:{user.id}",
+                    {"access_token": access_token, "refresh_token": refresh_token},
+                    timeout=cast(
+                        timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                    ).total_seconds(),
+                )
+
+            return response
+
+
+        except serializers.ValidationError as e:
+
+            error_message = e.detail
+
+            if isinstance(error_message, dict) and 'non_field_errors' in error_message:
+                error_message = error_message['non_field_errors'][0]
+
+            return Response(
+
+                {"message": error_message},
+
+                status=status.HTTP_400_BAD_REQUEST
+
             )
-
-        return response
 
 
 @extend_schema(tags=["user"])
@@ -385,7 +401,6 @@ class GoogleLoginView(GenericAPIView):
                     "access_token": access_token,
                     "refresh_token": refresh_token,
                     "phone": bool(user.phone),
-                    # "user_id": user.id,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -652,7 +667,8 @@ class TokenRefreshView(GenericAPIView):
                     "access_token": access_token,
                     "refresh_token": new_refresh_token,
                     "message": "토큰이 성공적으로 갱신되었습니다.",
-                }
+                },
+                status=status.HTTP_200_OK
             )
 
             # Authorization 헤더 설정

@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Union
 
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -62,14 +64,24 @@ class LoginSerializer(TokenObtainPairSerializer):
     )
 
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
+        # 이메일 존재 여부 먼저 확인
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=attrs['email'])
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError("입력된 정보로 가입된 이력이 없습니다.")
+
+        # 비밀번호 검증
+        if not user.check_password(attrs['password']):
+            raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
+
+        # 검증이 성공하면 토큰 발급
         data = super().validate(attrs)
-        # assert self.user is not None
 
         return {
             "message": "로그인이 완료되었습니다.",
             "access_token": data["access"],
             "refresh_token": data["refresh"],
-            # "user_id": str(self.user.id),
         }
 
 
@@ -90,7 +102,6 @@ class TokenResponseSerializer(serializers.Serializer):
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()
     phone = serializers.BooleanField()
-    # user_id = serializers.CharField()
 
 
 class GoogleCallbackResponseSerializer(serializers.Serializer):
