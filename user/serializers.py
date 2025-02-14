@@ -78,7 +78,7 @@ class LoginSerializer(TokenObtainPairSerializer):
             # 구글 소셜 로그인 유저 체크
             if user.provider == "google":
                 raise serializers.ValidationError(
-                    "구글 소셜 로그인으로 가입된 계정입니다. 구글 로그인을 이용해주세요."
+                    "구글 소셜 로그인으로 가입된 계정입니다."
                 )
 
             # 비밀번호 검증
