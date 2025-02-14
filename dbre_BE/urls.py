@@ -8,6 +8,7 @@ from drf_spectacular.views import (
 from rest_framework.routers import DefaultRouter
 
 from payment.views import (
+    DeleteBillingKeyView,
     GetBillingKeyView,
     PauseSubscriptionView,
     PortOneWebhookView,
@@ -61,6 +62,7 @@ payment_patterns = [
     ),
     path("webhook/", PortOneWebhookView.as_view(), name="portone_webhook"),
     path("billing-key/", StoreBillingKeyView.as_view(), name="store-billing-key"),
+    path("billing-key/", DeleteBillingKeyView.as_view(), name="delete_billing_key"),
     path("refund/", RefundSubscriptionView.as_view(), name="refund_subscription"),
     path("pause/", PauseSubscriptionView.as_view(), name="pause_subscription"),
     path("resume/", ResumeSubscriptionView.as_view(), name="resume_subscription"),
