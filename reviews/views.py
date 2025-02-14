@@ -29,6 +29,9 @@ class ReviewCreateView(APIView):
 
     def get(self, request: Request) -> Response:
         # 리뷰 전체 조회
+        if not request.user.is_staff:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+
         reviews = Review.objects.all()
         serializer = ReviewSerializer(reviews, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
