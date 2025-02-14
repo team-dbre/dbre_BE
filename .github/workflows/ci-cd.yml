@@ -120,6 +120,15 @@ jobs:
           script_stop: true
           script: |
             cd /root/dbre_BE
-            git pull origin main
-            docker-compose -f docker-compose.prod.yml down
-            docker-compose -f docker-compose.prod.yml up -d --build
+            # 현재 상태 백업
+            docker-compose -f docker-compose.prod.yml ps > container_state.txt
+            docker-compose -f docker-compose.prod.yml images > images_state.txt
+            
+            # 배포 시도
+            if ! git pull origin main || ! docker-compose -f docker-compose.prod.yml up -d --build; then
+              echo "Deployment failed, rolling back..."
+              git reset --hard HEAD@{1}
+              docker-compose -f docker-compose.prod.yml down
+              docker-compose -f docker-compose.prod.yml up -d
+              exit 1
+            fi
