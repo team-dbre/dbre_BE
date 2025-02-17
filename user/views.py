@@ -42,6 +42,8 @@ from user.serializers import (
     GoogleLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetResponseSerializer,
     PhoneCheckRequestSerializer,
     PhoneCheckResponseSerializer,
     PhoneNumberSerializer,
@@ -50,7 +52,7 @@ from user.serializers import (
     RefreshTokenSerializer,
     TokenResponseSerializer,
     UserProfileSerializer,
-    UserRegistrationSerializer, PasswordResetRequestSerializer, PasswordResetResponseSerializer,
+    UserRegistrationSerializer,
 )
 from user.utils import (
     format_phone_for_twilio,
@@ -752,7 +754,7 @@ class PasswordResetView(APIView):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        email = serializer.validated_data['email']
+        email = serializer.validated_data["email"]
 
         try:
             user = CustomUser.objects.get(email=email)
@@ -765,19 +767,16 @@ class PasswordResetView(APIView):
             user.save()
 
             # 이메일 내용 구성
-            subject = '[DeSub] 임시 비밀번호가 발급되었습니다'
+            subject = "[DeSub] 임시 비밀번호가 발급되었습니다"
             html_message = render_to_string(
-                'password_reset_email.html',  # 이메일 템플릿
-                {
-                    'user': user,
-                    'temp_password': temp_password
-                }
+                "password_reset_email.html",  # 이메일 템플릿
+                {"user": user, "temp_password": temp_password},
             )
 
             # 이메일 발송
             send_mail(
                 subject=subject,
-                message='',
+                message="",
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[email],
                 html_message=html_message,
@@ -786,16 +785,16 @@ class PasswordResetView(APIView):
 
             return Response(
                 {"message": "임시 비밀번호가 이메일로 발송되었습니다."},
-                status=status.HTTP_200_OK
+                status=status.HTTP_200_OK,
             )
 
         except CustomUser.DoesNotExist:
             return Response(
                 {"message": "등록되지 않은 이메일입니다."},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return Response(
                 {"message": f"비밀번호 초기화 중 오류가 발생했습니다: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

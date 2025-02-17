@@ -228,8 +228,10 @@ class PhoneCheckResponseSerializer(serializers.Serializer):
     email = serializers.EmailField(required=False)
     provider = serializers.CharField(required=False)
 
+
 class PasswordResetRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
 
 class PasswordResetResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
