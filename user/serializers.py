@@ -33,6 +33,30 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             "marketing_agreement",
         )
 
+    def validate_password_strength(self, password: str) -> str:
+        if len(password) < 10:
+            raise serializers.ValidationError("비밀번호는 최소 10자 이상이어야 합니다.")
+        if not any(char.isdigit() for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 숫자를 포함해야 합니다."
+            )
+        if not any(char.isupper() for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 대문자를 포함해야 합니다."
+            )
+        if not any(char.islower() for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 소문자를 포함해야 합니다."
+            )
+        if not any(char in '!@#$%^&*(),.?":{}|<>' for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 특수문자를 포함해야 합니다."
+            )
+        return password
+
+    def validate_password(self, value: str) -> str:
+        return self.validate_password_strength(value)
+
     def validate(self, data: dict) -> dict:
         if not data.get("terms_agreement") or not data.get("privacy_agreement"):
             raise serializers.ValidationError("필수 약관에 동의해야 합니다.")
@@ -235,3 +259,45 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 
 class PasswordResetResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
+
+
+class PasswordChangeSerializer(serializers.Serializer):
+    current_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
+    new_password_confirm = serializers.CharField(required=True)
+
+    def validate_password_strength(self, password: str) -> str:
+        if len(password) < 10:
+            raise serializers.ValidationError("비밀번호는 최소 10자 이상이어야 합니다.")
+        if not any(char.isdigit() for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 숫자를 포함해야 합니다."
+            )
+        if not any(char.isupper() for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 대문자를 포함해야 합니다."
+            )
+        if not any(char.islower() for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 소문자를 포함해야 합니다."
+            )
+        if not any(char in '!@#$%^&*(),.?":{}|<>' for char in password):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 특수문자를 포함해야 합니다."
+            )
+
+        return password
+
+    def validate(self, data: dict[str, str]) -> dict[str, str]:
+        if data["current_password"] == data["new_password"]:
+            raise serializers.ValidationError(
+                {"new_password_confirm": "현재 비밀번호와 새 비밀번호가 동일합니다."}
+            )
+
+        # 새 비밀번호 일치 여부 확인
+        if data["new_password"] != data["new_password_confirm"]:
+            raise serializers.ValidationError(
+                {"new_password_confirm": "새 비밀번호가 일치하지 않습니다."}
+            )
+
+        return data
