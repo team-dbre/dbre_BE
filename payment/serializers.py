@@ -21,12 +21,10 @@ class BillingKeySerializer(serializers.ModelSerializer):
     """Billing Key 저장을 위한 시리얼라이저"""
 
     billing_key = serializers.CharField()
-    card_name = serializers.CharField(required=False, allow_blank=True)
-    card_number = serializers.CharField(required=False, allow_blank=True)
 
     class Meta:
         model = BillingKey
-        fields = ["billing_key", "card_name", "card_number"]
+        fields = ["billing_key"]
 
     def validate_user_id(self, value: uuid.UUID) -> uuid.UUID:
         """유효한 사용자 ID인지 검증"""
@@ -41,8 +39,6 @@ class BillingKeySerializer(serializers.ModelSerializer):
             user=user,
             defaults={
                 "billing_key": validated_data["billing_key"],
-                "card_name": validated_data["card_name"],
-                "card_number": validated_data["card_number"],
             },
         )
         return billing_key

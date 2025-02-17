@@ -1,9 +1,11 @@
+from typing import List
+
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticatedOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -27,6 +29,11 @@ from plan.serializers import PlanSerializer
 @extend_schema(tags=["plan"])
 class PlanListCreateView(APIView):
     """구독 플랜 목록 조회 및 생성"""
+
+    def get_permissions(self) -> List[IsAdminUser] | List[AllowAny]:
+        if self.request.method == "POST":
+            return [IsAdminUser()]
+        return [AllowAny()]
 
     @extend_schema(responses={200: PlanSerializer(many=True)})
     def get(self, request: PlanSerializer) -> Response:
@@ -52,6 +59,11 @@ class PlanListCreateView(APIView):
 @extend_schema(tags=["plan"])
 class PlanDetailView(APIView):
     """구독 플랜 개별 조회, 수정, 삭제"""
+
+    def get_permissions(self) -> List[IsAdminUser] | List[AllowAny]:
+        if self.request.method == "GET":
+            return [AllowAny()]
+        return [IsAdminUser()]
 
     @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
     def get(self, request: PlanSerializer, plan_id: int) -> Response:
@@ -87,7 +99,7 @@ class PlanActivateView(APIView):
     비활성화된 플랜을 다시 활성화
     """
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminUser]
 
     @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
     def post(self, request: PlanSerializer, plan_id: int) -> Response:
@@ -106,7 +118,7 @@ class PlanDeleteView(APIView):
     플랜 완전 삭제
     """
 
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAdminUser]
 
     @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
     def delete(self, request: PlanSerializer, plan_id: int) -> Response:
