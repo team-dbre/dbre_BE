@@ -89,8 +89,6 @@ class StoreBillingKeyView(APIView):
                 {
                     "message": "Billing Key 저장 성공",
                     "billing_key": billing_key.billing_key,
-                    "card_name": billing_key.card_name,
-                    "card_number": billing_key.card_number,
                 },
                 status=status.HTTP_201_CREATED,
             )
