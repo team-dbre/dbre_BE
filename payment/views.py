@@ -297,7 +297,7 @@ class PortOneWebhookView(APIView):
         try:
             body = request.body.decode("utf-8")
             data = json.loads(body)
-            signature = request.headers.get("Signature")
+            signature = request.headers.get("x-portone-signature")
 
             if not verify_signature(request, signature):
                 logger.error("Webhook signature verification failed")
