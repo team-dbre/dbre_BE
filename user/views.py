@@ -39,6 +39,8 @@ from user.serializers import (
     GoogleLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
+    PhoneCheckRequestSerializer,
+    PhoneCheckResponseSerializer,
     PhoneNumberSerializer,
     PhoneVerificationConfirmSerializer,
     PhoneVerificationRequestSerializer,
@@ -691,4 +693,42 @@ class TokenRefreshView(GenericAPIView):
             return Response(
                 {"error": f"토큰 갱신 중 오류가 발생했습니다: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST,
+            )
+
+
+class UserPhoneCheckView(APIView):
+    @extend_schema(
+        tags=["user"],
+        summary="휴대폰 번호로 계정 확인",
+        description="휴대폰 번호로 가입된 계정이 있는지 확인하고 가입 방식을 반환합니다.",
+        request=PhoneCheckRequestSerializer,
+        responses={200: PhoneCheckResponseSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = PhoneCheckRequestSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        phone = serializer.validated_data["phone"]
+
+        try:
+            user = CustomUser.objects.get(phone=phone)
+
+            # provider가 없는 경우는 일반 회원가입 유저
+            provider = user.provider if user.provider else "desub"
+
+            return Response(
+                {
+                    "message": "현재 번호로 가입된 계정을 찾았습니다.",
+                    "email": user.email,
+                    "provider": provider,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"message": "현재 번호로 가입된 계정이 없습니다."},
+                status=status.HTTP_200_OK,
             )

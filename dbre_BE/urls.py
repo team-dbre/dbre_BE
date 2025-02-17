@@ -35,6 +35,7 @@ from user.views import (
     RequestVerificationView,
     SavePhoneNumberView,
     TokenRefreshView,
+    UserPhoneCheckView,
     UserProfileView,
     UserRegistrationView,
     VerifyPhoneView,
@@ -102,6 +103,7 @@ user_patterns = [
     path("g-phone/", SavePhoneNumberView.as_view(), name="g-phone"),
     path("", UserProfileView.as_view(), name="user-profile"),
     path("refresh_token/", TokenRefreshView.as_view(), name="refresh-token"),
+    path("find-email/", UserPhoneCheckView.as_view(), name="find-email"),
 ]
 
 # review 관련 URL 패턴
