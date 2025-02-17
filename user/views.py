@@ -7,7 +7,10 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from django_redis import get_redis_connection
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
@@ -47,7 +50,7 @@ from user.serializers import (
     RefreshTokenSerializer,
     TokenResponseSerializer,
     UserProfileSerializer,
-    UserRegistrationSerializer,
+    UserRegistrationSerializer, PasswordResetRequestSerializer, PasswordResetResponseSerializer,
 )
 from user.utils import (
     format_phone_for_twilio,
@@ -731,4 +734,68 @@ class UserPhoneCheckView(APIView):
             return Response(
                 {"message": "현재 번호로 가입된 계정이 없습니다."},
                 status=status.HTTP_200_OK,
+            )
+
+
+class PasswordResetView(APIView):
+    serializer_class = PasswordResetRequestSerializer
+
+    @extend_schema(
+        tags=["user"],
+        summary="비밀번호 초기화 요청",
+        description="이메일을 입력받아 임시 비밀번호를 생성하고 메일로 발송합니다.",
+        request=PasswordResetRequestSerializer,
+        responses={200: PasswordResetResponseSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data['email']
+
+        try:
+            user = CustomUser.objects.get(email=email)
+
+            # 임시 비밀번호 생성 (12자리)
+            temp_password = get_random_string(12)
+
+            # 사용자 비밀번호 업데이트
+            user.set_password(temp_password)
+            user.save()
+
+            # 이메일 내용 구성
+            subject = '[DeSub] 임시 비밀번호가 발급되었습니다'
+            html_message = render_to_string(
+                'password_reset_email.html',  # 이메일 템플릿
+                {
+                    'user': user,
+                    'temp_password': temp_password
+                }
+            )
+
+            # 이메일 발송
+            send_mail(
+                subject=subject,
+                message='',
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+
+            return Response(
+                {"message": "임시 비밀번호가 이메일로 발송되었습니다."},
+                status=status.HTTP_200_OK
+            )
+
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"message": "등록되지 않은 이메일입니다."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"message": f"비밀번호 초기화 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
