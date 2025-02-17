@@ -35,10 +35,7 @@ services:
       - ./dbre_BE:/app/dbre_BE
       - ./staticfiles:/app/staticfiles
     working_dir: /app
-    command: >
-      sh -c "poetry run python manage.py migrate &&
-             poetry run python manage.py collectstatic --noinput &&
-             poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application"
+    command: poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}

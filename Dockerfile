@@ -33,8 +33,8 @@ RUN poetry install --no-root --no-dev --no-interaction --no-ansi
 # 소스 코드 복사
 COPY . .
 
-## 정적 파일 수집 및 마이그레이션
-#RUN poetry run python manage.py collectstatic --noinput
+# 정적 파일 수집 및 마이그레이션
+RUN poetry run python manage.py collectstatic --noinput
 
 # 실행 명령
 CMD ["sh", "-c", "poetry run python manage.py migrate && poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application"]
