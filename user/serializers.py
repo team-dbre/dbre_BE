@@ -300,4 +300,7 @@ class PasswordChangeSerializer(serializers.Serializer):
                 {"new_password_confirm": "새 비밀번호가 일치하지 않습니다."}
             )
 
+        # 비밀번호 강도 검증
+        self.validate_password_strength(data["new_password"])
+
         return data
