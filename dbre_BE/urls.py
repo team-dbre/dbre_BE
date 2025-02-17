@@ -5,8 +5,8 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
-from rest_framework.routers import DefaultRouter
 
+from admin_api.views import CreateAdminView
 from payment.views import (
     GetBillingKeyView,
     PauseSubscriptionView,
@@ -23,6 +23,7 @@ from plan.views import (
     PlanDetailView,
     PlanListCreateView,
 )
+from reviews.views import ReviewCreateView
 from subscription.views import SubscriptionView, SusHistoryView
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
@@ -103,6 +104,16 @@ user_patterns = [
     path("refresh_token/", TokenRefreshView.as_view(), name="refresh-token"),
 ]
 
+# review 관련 URL 패턴
+review_patterns = [
+    path("", ReviewCreateView.as_view(), name="review_subscription"),
+]
+
+# Admin 관련 URL 패턴
+admin_patterns = [
+    path("create-admin/", CreateAdminView.as_view(), name="create-admin"),
+]
+
 # 메인 URL 패턴
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -118,6 +129,8 @@ urlpatterns = [
     path("api/plans/", include((plan_patterns, "plan"))),
     path("api/subscriptions/", include((subs_patterns, "subscription"))),
     path("api/user/", include((user_patterns, "user"))),
+    path("api/review/", include((review_patterns, "reviews"))),
+    path("api/admin/", include((admin_patterns, "admin_api"))),
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
 ]

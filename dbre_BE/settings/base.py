@@ -56,9 +56,11 @@ INSTALLED_APPS = [
     "user",
     "plan",
     "allauth",
+    "reviews",
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
+    "admin_api",
 ]
 
 
@@ -188,7 +190,9 @@ SPECTACULAR_SETTINGS = {
         {"name": "payment", "description": "Payment related operations"},
         {"name": "subscription", "description": "Subscription related operations"},
         {"name": "plan", "description": "Plan related operations"},
+        {"name": "review", "description": "Review related operations"},
         {"name": "term", "description": "Term related operations"},
+        {"name": "admin", "description": "Admin related operations"},
     ],
     "OPERATIONS_SORTER": None,
     "TAG_SORTER": None,

@@ -6,6 +6,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
       - ./certbot/conf:/etc/letsencrypt  # 인증서 볼륨
@@ -17,7 +18,6 @@ services:
       - dbre_network
     restart: always
 
-  # Certbot 서비스 추가
   certbot:
     image: certbot/certbot
     volumes:
@@ -25,7 +25,9 @@ services:
       - ./certbot/www:/var/www/certbot
     depends_on:
       - nginx
-    command: certonly --webroot -w /var/www/certbot --force-renewal --email ks3610@gmail.com -d api.desub.kr -d www.api.desub.kr --agree-tos --no-eff-email
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    command: certonly --webroot -w /var/www/certbot --email ks3610@gmail.com -d api.desub.kr -d www.api.desub.kr --agree-tos --no-eff-email
+
   web:
     build: .
     env_file: .env.prod
@@ -74,6 +76,8 @@ services:
 
   redis:
     image: redis:7-alpine
+    volumes:
+      - redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:
