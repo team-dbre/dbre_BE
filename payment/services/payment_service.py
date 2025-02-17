@@ -155,8 +155,10 @@ class SubscriptionPaymentService:
     def schedule_next_payment(self, sub: Subs) -> Dict[str, Any]:
         """다음 결제 예약"""
         current_date = now()
-        start_date = sub.start_date
-        next_billing_date = current_date + relativedelta(months=1)
+        new_start_date = current_date
+        next_billing_date = (sub.next_bill_date or current_date) + relativedelta(
+            months=1
+        )
         scheduled_payment_id = f"SUBS{uuid.uuid4().hex[:18]}"
 
         if sub.billing_key is None:
@@ -186,11 +188,11 @@ class SubscriptionPaymentService:
 
             # 구독 종료일 계산
             if sub.plan.period == "monthly":
-                end_date = start_date + relativedelta(
+                end_date = new_start_date + relativedelta(
                     months=1
                 )  # 월간 플랜은 1개월 후 종료
             elif sub.plan.period == "yearly":
-                end_date = start_date + relativedelta(
+                end_date = new_start_date + relativedelta(
                     months=12
                 )  # 연간 플랜은 12개월 후 종료
             else:
@@ -199,13 +201,20 @@ class SubscriptionPaymentService:
             # 한 달 단위로 남은 구독 개월 수 계산
             remaining_bill_date = (end_date - current_date).days
 
+            sub.start_date = new_start_date
             sub.next_bill_date = next_billing_date
             sub.end_date = end_date
             sub.remaining_bill_date = timedelta(days=remaining_bill_date)
             sub.save(
-                update_fields=["next_bill_date", "end_date", "remaining_bill_date"]
+                update_fields=[
+                    "start_date",
+                    "next_bill_date",
+                    "end_date",
+                    "remaining_bill_date",
+                ]
             )
             return {
+                "start_date": sub.start_date.isoformat(),
                 "next_billing_date": next_billing_date.isoformat(),
                 "end_date": end_date.isoformat(),
                 "remaining_bill_date": remaining_bill_date,
