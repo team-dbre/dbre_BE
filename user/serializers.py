@@ -312,3 +312,14 @@ class PasswordChangeResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
     access_token = serializers.CharField()
     refresh_token = serializers.CharField()
+
+
+class UserUpdateSerializer(serializers.Serializer):
+    name = serializers.CharField(max_length=50, required=False)
+    image = serializers.ImageField(required=False)
+
+
+class UserUpdateResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    name = serializers.CharField()
+    img_url = serializers.URLField(allow_null=True)
