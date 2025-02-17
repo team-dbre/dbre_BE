@@ -129,6 +129,26 @@ class StoreBillingKeyView(APIView):
             {"message": "빌링키 삭제 성공"}, status=status.HTTP_204_NO_CONTENT
         )
 
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+
+        # 사용자 조회
+        user = request.user
+        logger.info(f"[get_billing_key] Billing Key 조회 요청 - User ID: {user.id}")
+
+        # Billing Key 조회
+        billing_key = BillingKey.objects.filter(user=user).first()
+        if not billing_key:
+            logger.warning(f"[get_billing_key] Billing Key 없음 - User ID: {user.id}")
+            return Response(
+                {"error": "등록된 Billing Key가 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        logger.info(f"[get_billing_key] Billing Key 조회 성공 - User ID: {user.id}")
+
+        serializer = self.serializer_class(billing_key)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 
 def subscription_service(request: HttpRequest) -> HttpResponse:
     return render(request, "update.html")
@@ -267,35 +287,6 @@ class RequestSubscriptionPaymentView(APIView):
                 {"error": "Internal server error"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-
-
-@extend_schema(tags=["payment"])
-class GetBillingKeyView(APIView):
-    """특정 사용자의 Billing Key 조회 API"""
-
-    permission_classes = [IsAuthenticated]
-
-    serializer_class = GetBillingKeySerializer
-
-    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-
-        # 사용자 조회
-        user = request.user
-        logger.info(f"[get_billing_key] Billing Key 조회 요청 - User ID: {user.id}")
-
-        # Billing Key 조회
-        billing_key = BillingKey.objects.filter(user=user).first()
-        if not billing_key:
-            logger.warning(f"[get_billing_key] Billing Key 없음 - User ID: {user.id}")
-            return Response(
-                {"error": "등록된 Billing Key가 없습니다."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        logger.info(f"[get_billing_key] Billing Key 조회 성공 - User ID: {user.id}")
-
-        serializer = self.serializer_class(billing_key)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @extend_schema(tags=["payment"])
