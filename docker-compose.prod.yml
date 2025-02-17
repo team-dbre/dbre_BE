@@ -36,10 +36,11 @@ services:
       - ./staticfiles:/app/staticfiles
     working_dir: /app
     command: >
-      bash -c "poetry install --no-dev &&
-               poetry run python manage.py migrate &&
-               poetry run python manage.py collectstatic --noinput &&
-               poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application"
+      sh -c "
+      cd /app &&
+      poetry run python manage.py migrate &&
+      poetry run python manage.py collectstatic --noinput &&
+      poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application"
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -47,7 +48,7 @@ services:
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/1
       - DJANGO_SETTINGS_MODULE=dbre_BE.settings.prod
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app:/app/dbre_BE
       - DJANGO_ENV=prod
     depends_on:
       db:
