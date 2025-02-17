@@ -307,6 +307,7 @@ class PasswordChangeSerializer(serializers.Serializer):
 
         return data
 
+
 class PasswordChangeResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
     access_token = serializers.CharField()

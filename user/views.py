@@ -42,6 +42,7 @@ from user.serializers import (
     GoogleLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
+    PasswordChangeResponseSerializer,
     PasswordChangeSerializer,
     PasswordResetRequestSerializer,
     PasswordResetResponseSerializer,
@@ -53,7 +54,7 @@ from user.serializers import (
     RefreshTokenSerializer,
     TokenResponseSerializer,
     UserProfileSerializer,
-    UserRegistrationSerializer, PasswordChangeResponseSerializer,
+    UserRegistrationSerializer,
 )
 from user.utils import (
     format_phone_for_twilio,
