@@ -845,14 +845,14 @@ class PasswordChangeView(APIView):
             user.set_password(new_password)
             user.save()
 
-            # 선택사항: 비밀번호 변경 알림 이메일 발송
-            send_mail(
-                subject="[DeSub] 비밀번호가 변경되었습니다",
-                message=f"{user.name}님의 비밀번호가 변경되었습니다. 본인이 아닌 경우 즉시 고객센터로 문의해주세요.",
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[user.email],
-                fail_silently=True,
-            )
+            # # 선택사항: 비밀번호 변경 알림 이메일 발송
+            # send_mail(
+            #     subject="[DeSub] 비밀번호가 변경되었습니다",
+            #     message=f"{user.name}님의 비밀번호가 변경되었습니다. 본인이 아닌 경우 즉시 고객센터로 문의해주세요.",
+            #     from_email=settings.EMAIL_HOST_USER,
+            #     recipient_list=[user.email],
+            #     fail_silently=True,
+            # )
 
             # 토큰 재발급 (선택사항)
             refresh = RefreshToken.for_user(user)
@@ -860,8 +860,8 @@ class PasswordChangeView(APIView):
             return Response(
                 {
                     "message": "비밀번호가 성공적으로 변경되었습니다.",
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
+                    "access_token": str(refresh.access_token),
+                    "refresh_token": str(refresh),
                 },
                 status=status.HTTP_200_OK,
             )
