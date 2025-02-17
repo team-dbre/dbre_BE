@@ -53,7 +53,7 @@ from user.serializers import (
     RefreshTokenSerializer,
     TokenResponseSerializer,
     UserProfileSerializer,
-    UserRegistrationSerializer,
+    UserRegistrationSerializer, PasswordChangeResponseSerializer,
 )
 from user.utils import (
     format_phone_for_twilio,
@@ -811,9 +811,10 @@ class PasswordChangeView(APIView):
         description="현재 비밀번호를 확인하고 새로운 비밀번호로 변경합니다.",
         request=PasswordChangeSerializer,
         responses={
-            200: OpenApiResponse(description="비밀번호 변경 성공"),
+            200: PasswordChangeResponseSerializer,
             400: OpenApiResponse(description="잘못된 요청"),
             401: OpenApiResponse(description="인증 실패"),
+            500: OpenApiResponse(description="서버 오류"),
         },
     )
     def post(self, request: Request) -> Response:

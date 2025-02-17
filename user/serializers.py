@@ -33,7 +33,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             "marketing_agreement",
         )
 
-    def validate_password_strength(self, password: str) -> str:
+    @staticmethod
+    def validate_password_strength(password: str) -> str:
         if len(password) < 10:
             raise serializers.ValidationError("비밀번호는 최소 10자 이상이어야 합니다.")
         if not any(char.isdigit() for char in password):
@@ -266,7 +267,8 @@ class PasswordChangeSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True)
     new_password_confirm = serializers.CharField(required=True)
 
-    def validate_password_strength(self, password: str) -> str:
+    @staticmethod
+    def validate_password_strength(password: str) -> str:
         if len(password) < 10:
             raise serializers.ValidationError("비밀번호는 최소 10자 이상이어야 합니다.")
         if not any(char.isdigit() for char in password):
@@ -304,3 +306,8 @@ class PasswordChangeSerializer(serializers.Serializer):
         self.validate_password_strength(data["new_password"])
 
         return data
+
+class PasswordChangeResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    access = serializers.CharField()
+    refresh = serializers.CharField()
