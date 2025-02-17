@@ -8,7 +8,6 @@ from drf_spectacular.views import (
 
 from admin_api.views import CreateAdminView
 from payment.views import (
-    GetBillingKeyView,
     PauseSubscriptionView,
     PortOneWebhookView,
     RefundSubscriptionView,
@@ -56,11 +55,6 @@ payment_patterns = [
         RequestSubscriptionPaymentView.as_view(),
         name="request_subscription_payment",
     ),
-    path(
-        "billing-key/",
-        GetBillingKeyView.as_view(),
-        name="get_billing_key",
-    ),
     path("webhook/", PortOneWebhookView.as_view(), name="portone_webhook"),
     path("billing-key/", StoreBillingKeyView.as_view(), name="store-billing-key"),
     path("refund/", RefundSubscriptionView.as_view(), name="refund_subscription"),
@@ -74,7 +68,6 @@ payment_patterns = [
 
 # plan 관련 URL 패턴
 plan_patterns = [
-    # path("<int:plan_id>/", get_plan_details, name="get_plan_details"),
     path("", PlanListCreateView.as_view(), name="plan-list-create"),
     path("<int:plan_id>/", PlanDetailView.as_view(), name="plan-detail"),
     path("<int:plan_id>/delete/", PlanDeleteView.as_view(), name="plan-delete"),
