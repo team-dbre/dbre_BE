@@ -3,7 +3,9 @@ name = "dbre-be"
 version = "0.1.0"
 description = ""
 authors = ["limsu1015 <tngur1015@gmail.com>"]
-packages = []
+packages = [
+    { include = "dbre_BE" }
+]
 package-mode = true
 
 [tool.poetry.dependencies]
