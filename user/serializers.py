@@ -3,6 +3,7 @@ from typing import Dict, Optional, Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from django.core.validators import RegexValidator
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -198,3 +199,31 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
 class RefreshTokenSerializer(serializers.Serializer):
     refresh_token = serializers.CharField()
+
+
+class PhoneCheckRequestSerializer(serializers.Serializer):
+    phone = serializers.CharField(
+        required=True,
+        help_text="확인할 휴대폰 번호 (예: 010-1234-5678, +8201012345678, 01012345678)",
+    )
+
+    def validate_phone(self, value: str) -> str:
+        try:
+            normalized_phone = normalize_phone_number(value)
+
+            # 전화번호 형식 검증
+            phone_regex = RegexValidator(
+                regex=r"^01([0|1|6|7|8|9]?)-?([0-9]{3,4})-?([0-9]{4})$",
+                message="올바른 전화번호 형식이 아닙니다.",
+            )
+            phone_regex(normalized_phone)
+
+            return normalized_phone
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
+
+
+class PhoneCheckResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+    email = serializers.EmailField(required=False)
+    provider = serializers.CharField(required=False)
