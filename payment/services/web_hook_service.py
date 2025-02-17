@@ -113,32 +113,35 @@ def update_payment_status(
         return {"message": f"Error: {str(e)}", "status": 500}
 
 
-def verify_signature(request: Request, signature: str) -> bool:
+def verify_signature(request: Request) -> bool:
     try:
-        # 1. request.body 읽기
+        # Webhook 요청 헤더 출력
+        logger.info(f"Webhook Headers: {dict(request.headers)}")
+
+        # request.body 읽기
         body = request.body.decode("utf-8")
         logger.info(f"Webhook Raw Body: {body}")
 
-        # 2. 요청 헤더에서 x-portone-signature 가져오기
+        # 요청 헤더에서 x-portone-signature 가져오기
         received_signature = request.headers.get("x-portone-signature")
         if not received_signature:
-            logger.error("Missing x-portone-signature header")
+            logger.error("🚨 Missing x-portone-signature header")
             return False
 
-        # 3. Expected Signature 생성
+        # 예상 서명 생성
         expected_signature = hmac.new(
             key=settings.IMP_WEBHOOK_SECRETE.encode("utf-8"),  # type: ignore
             msg=body.encode("utf-8"),
             digestmod=hashlib.sha256,
         ).hexdigest()
 
-        # 4. 로그 확인
-        logger.info(f" Expected Signature: {expected_signature}")
-        logger.info(f" Received Signature: {received_signature}")
+        # 로그 확인
+        logger.info(f"✅ Expected Signature: {expected_signature}")
+        logger.info(f"✅ Received Signature: {received_signature}")
 
-        # 5. 검증 결과 반환
+        # 서명 비교
         return hmac.compare_digest(expected_signature, received_signature)
 
     except Exception as e:
-        logger.exception(f" Error verifying signature: {e}")
+        logger.exception(f"🚨 Error verifying signature: {e}")
         return False
