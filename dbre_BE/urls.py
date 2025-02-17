@@ -31,6 +31,8 @@ from user.views import (
     GoogleLoginView,
     LoginView,
     LogoutView,
+    PasswordChangeView,
+    PasswordResetView,
     RequestVerificationView,
     SavePhoneNumberView,
     TokenRefreshView,
@@ -97,6 +99,8 @@ user_patterns = [
     path("", UserProfileView.as_view(), name="user-profile"),
     path("refresh_token/", TokenRefreshView.as_view(), name="refresh-token"),
     path("find-email/", UserPhoneCheckView.as_view(), name="find-email"),
+    path("password/reset/", PasswordResetView.as_view(), name="password_reset"),
+    path("password/change/", PasswordChangeView.as_view(), name="password_change"),
 ]
 
 # review 관련 URL 패턴
