@@ -7,7 +7,10 @@ from urllib.parse import urlencode
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
+from django.utils.crypto import get_random_string
 from django_redis import get_redis_connection
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import (
@@ -39,6 +42,9 @@ from user.serializers import (
     GoogleLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
+    PasswordChangeSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetResponseSerializer,
     PhoneCheckRequestSerializer,
     PhoneCheckResponseSerializer,
     PhoneNumberSerializer,
@@ -731,4 +737,136 @@ class UserPhoneCheckView(APIView):
             return Response(
                 {"message": "현재 번호로 가입된 계정이 없습니다."},
                 status=status.HTTP_200_OK,
+            )
+
+
+class PasswordResetView(APIView):
+    serializer_class = PasswordResetRequestSerializer
+
+    @extend_schema(
+        tags=["user"],
+        summary="비밀번호 초기화 요청",
+        description="이메일을 입력받아 임시 비밀번호를 생성하고 메일로 발송합니다.",
+        request=PasswordResetRequestSerializer,
+        responses={200: PasswordResetResponseSerializer},
+    )
+    def post(self, request: Request) -> Response:
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        email = serializer.validated_data["email"]
+
+        try:
+            user = CustomUser.objects.get(email=email)
+
+            # 임시 비밀번호 생성 (12자리)
+            temp_password = get_random_string(12)
+
+            # 사용자 비밀번호 업데이트
+            user.set_password(temp_password)
+            user.save()
+
+            # 이메일 내용 구성
+            subject = "[DeSub] 임시 비밀번호가 발급되었습니다"
+            html_message = render_to_string(
+                "password_reset_email.html",  # 이메일 템플릿
+                {"user": user, "temp_password": temp_password},
+            )
+
+            # 이메일 발송
+            send_mail(
+                subject=subject,
+                message="",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                html_message=html_message,
+                fail_silently=False,
+            )
+
+            return Response(
+                {"message": "임시 비밀번호가 이메일로 발송되었습니다."},
+                status=status.HTTP_200_OK,
+            )
+
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"message": "등록되지 않은 이메일입니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return Response(
+                {"message": f"비밀번호 초기화 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class PasswordChangeView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = PasswordChangeSerializer
+
+    @extend_schema(
+        tags=["user"],
+        summary="비밀번호 변경",
+        description="현재 비밀번호를 확인하고 새로운 비밀번호로 변경합니다.",
+        request=PasswordChangeSerializer,
+        responses={
+            200: OpenApiResponse(description="비밀번호 변경 성공"),
+            400: OpenApiResponse(description="잘못된 요청"),
+            401: OpenApiResponse(description="인증 실패"),
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        current_password = serializer.validated_data["current_password"]
+        new_password = serializer.validated_data["new_password"]
+
+        # 현재 비밀번호 확인
+        if not user.check_password(current_password):
+            return Response(
+                {"current_password": "현재 비밀번호가 일치하지 않습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 새 비밀번호가 현재 비밀번호와 같은지 확인
+        if current_password == new_password:
+            return Response(
+                {"new_password": "새 비밀번호는 현재 비밀번호와 달라야 합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            # 비밀번호 변경
+            user.set_password(new_password)
+            user.save()
+
+            # 선택사항: 비밀번호 변경 알림 이메일 발송
+            send_mail(
+                subject="[DeSub] 비밀번호가 변경되었습니다",
+                message=f"{user.name}님의 비밀번호가 변경되었습니다. 본인이 아닌 경우 즉시 고객센터로 문의해주세요.",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+
+            # 토큰 재발급 (선택사항)
+            refresh = RefreshToken.for_user(user)
+
+            return Response(
+                {
+                    "message": "비밀번호가 성공적으로 변경되었습니다.",
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"message": f"비밀번호 변경 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
