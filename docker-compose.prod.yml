@@ -9,8 +9,8 @@ services:
     command: "/bin/sh -c 'while :; do sleep 6h & wait $${!}; nginx -s reload; done & nginx -g \"daemon off;\"'"
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d
-      - ./certbot/conf:/etc/letsencrypt
-      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt  # 인증서 볼륨
+      - ./certbot/www:/var/www/certbot   # 인증서 발급용 웹루트
       - ./staticfiles:/app/staticfiles
     depends_on:
       - web
@@ -36,11 +36,9 @@ services:
       - ./staticfiles:/app/staticfiles
     working_dir: /app
     command: >
-      sh -c "
-      cd /app &&
-      poetry run python manage.py migrate &&
-      poetry run python manage.py collectstatic --noinput &&
-      poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application"
+      sh -c "poetry run python manage.py migrate &&
+             poetry run python manage.py collectstatic --noinput &&
+             poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application"
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -81,6 +79,8 @@ services:
 
   redis:
     image: redis:7-alpine
+#    volumes:
+#      - redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:

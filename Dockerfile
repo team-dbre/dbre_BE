@@ -10,9 +10,7 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VERSION=1.8.5 \
     POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_VIRTUALENVS_IN_PROJECT=false \
-    POETRY_NO_INTERACTION=1 \
-    PYTHONPATH="/app:$PYTHONPATH"
+    POETRY_NO_INTERACTION=1
 
 # 시스템 의존성 설치 및 캐시 정리
 RUN apt-get update && \
@@ -30,11 +28,13 @@ ENV PATH="${POETRY_HOME}/bin:$PATH"
 COPY pyproject.toml poetry.lock ./
 
 # Poetry 의존성 설치
-RUN poetry config virtualenvs.create false && \
-    poetry install --no-interaction --no-ansi
+RUN poetry install --no-root --no-dev --no-interaction --no-ansi
 
 # 소스 코드 복사
 COPY . .
+
+## 정적 파일 수집 및 마이그레이션
+#RUN poetry run python manage.py collectstatic --noinput
 
 # 실행 명령
 CMD ["sh", "-c", "poetry run python manage.py migrate && poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application"]

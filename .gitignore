@@ -387,8 +387,4 @@ poetry.toml
 # LSP config files
 pyrightconfig.json
 
-# DOCKER
-container_state.txt
-images_state.txt
-
 # End of https://www.toptal.com/developers/gitignore/api/pycharm,django,python
