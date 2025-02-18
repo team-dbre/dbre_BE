@@ -1,13 +1,13 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from reviews.models import Review
-from reviews.serializers import ReviewSerializer
+from reviews.serializers import ReviewGetSerializer, ReviewSerializer
 
 
 @extend_schema(
@@ -33,5 +33,23 @@ class ReviewCreateView(APIView):
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         reviews = Review.objects.all()
-        serializer = ReviewSerializer(reviews, many=True)
+        serializer = ReviewGetSerializer(reviews, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=["review"],
+    responses={200: ReviewGetSerializer()},
+    request=ReviewGetSerializer,
+)
+class ReviewDetailView(APIView):
+    """
+    리뷰 상세 조회
+    """
+
+    permission_classes = [IsAdminUser]
+
+    def get(self, request: Request, review_id: int) -> Response:
+        review = get_object_or_404(Review, id=review_id)
+        serializer = ReviewGetSerializer(review, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
