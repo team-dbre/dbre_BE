@@ -1,12 +1,17 @@
 import logging
+import uuid
 
 from datetime import timedelta
 from typing import Any, cast
 from urllib.parse import urlencode
 
+import boto3
+
+from botocore.exceptions import ClientError
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
+from django.core.files.uploadedfile import UploadedFile
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -22,6 +27,7 @@ from drf_spectacular.utils import (
 )
 from rest_framework import serializers, status
 from rest_framework.generics import CreateAPIView, GenericAPIView
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.renderers import JSONRenderer
 from rest_framework.request import Request
@@ -42,6 +48,7 @@ from user.serializers import (
     GoogleLoginRequestSerializer,
     LoginSerializer,
     LogoutSerializer,
+    PasswordChangeResponseSerializer,
     PasswordChangeSerializer,
     PasswordResetRequestSerializer,
     PasswordResetResponseSerializer,
@@ -54,6 +61,8 @@ from user.serializers import (
     TokenResponseSerializer,
     UserProfileSerializer,
     UserRegistrationSerializer,
+    UserUpdateResponseSerializer,
+    UserUpdateSerializer,
 )
 from user.utils import (
     format_phone_for_twilio,
@@ -620,16 +629,114 @@ class SavePhoneNumberView(APIView):
             ),
             401: OpenApiResponse(description="인증되지 않은 사용자"),
         },
-    )
+    ),
+    patch=extend_schema(
+        tags=["user"],
+        summary="사용자 정보 수정",
+        description="사용자의 이름과 프로필 이미지를 수정합니다.",
+        request=UserUpdateSerializer,
+        responses={
+            200: UserUpdateResponseSerializer,
+            400: OpenApiResponse(description="잘못된 요청"),
+            401: OpenApiResponse(description="인증 실패"),
+        },
+    ),
 )
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
-    serializer_class = UserProfileSerializer
+    parser_classes = (MultiPartParser, FormParser)
 
     def get(self, request: Request) -> Response:
         user = request.user
-        serializer = self.serializer_class(user)
+        serializer = UserProfileSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def _is_ncp_image(self, img_url: str | None) -> bool:
+        """이미지 URL이 NCP 버킷의 이미지인지 확인"""
+        if not img_url:
+            return False
+        return settings.NCP_BUCKET_URL in img_url
+
+    def _upload_to_ncp(self, image_file: UploadedFile, key_prefix: str) -> str:
+        s3_client = boto3.client(
+            "s3",
+            aws_access_key_id=settings.NCP_ACCESS_KEY,
+            aws_secret_access_key=settings.NCP_SECRET_KEY,
+            endpoint_url=settings.NCP_ENDPOINT_URL,
+        )
+
+        if not image_file.name:
+            raise serializers.ValidationError("파일 이름이 없습니다.")
+
+        file_extension = image_file.name.split(".")[-1]
+        key = f"{key_prefix}/{uuid.uuid4()}.{file_extension}"
+
+        try:
+            s3_client.upload_fileobj(
+                image_file,
+                settings.NCP_BUCKET_NAME,
+                key,
+                ExtraArgs={"ACL": "public-read"},
+            )
+            return f"{settings.NCP_BUCKET_URL}/{key}"
+        except ClientError as e:
+            logger.error(f"NCP upload error: {str(e)}")
+            raise serializers.ValidationError("이미지 업로드에 실패했습니다.")
+
+    def _delete_from_ncp(self, img_url: str | None) -> None:
+        if not img_url:
+            return
+
+        try:
+            s3_client = boto3.client(
+                "s3",
+                aws_access_key_id=settings.NCP_ACCESS_KEY,
+                aws_secret_access_key=settings.NCP_SECRET_KEY,
+                endpoint_url=settings.NCP_ENDPOINT_URL,
+            )
+
+            key = img_url.replace(f"{settings.NCP_BUCKET_URL}/", "")
+            s3_client.delete_object(Bucket=settings.NCP_BUCKET_NAME, Key=key)
+        except ClientError as e:
+            logger.error(f"NCP delete error: {str(e)}")
+
+    def patch(self, request: Request) -> Response:
+        serializer = UserUpdateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        user = request.user
+        old_img_url = user.img_url
+
+        try:
+            if "name" in serializer.validated_data:
+                user.name = serializer.validated_data["name"]
+
+            if "image" in serializer.validated_data:
+                new_img_url = self._upload_to_ncp(
+                    serializer.validated_data["image"], "profile-images"
+                )
+                user.img_url = new_img_url
+
+                if old_img_url and self._is_ncp_image(old_img_url):
+                    self._delete_from_ncp(old_img_url)
+
+            user.save()
+
+            return Response(
+                {
+                    "message": "프로필이 성공적으로 수정되었습니다.",
+                    "name": user.name,
+                    "img_url": user.img_url,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        except Exception as e:
+            return Response(
+                {"message": f"프로필 수정 중 오류가 발생했습니다: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class TokenRefreshView(GenericAPIView):
@@ -811,9 +918,10 @@ class PasswordChangeView(APIView):
         description="현재 비밀번호를 확인하고 새로운 비밀번호로 변경합니다.",
         request=PasswordChangeSerializer,
         responses={
-            200: OpenApiResponse(description="비밀번호 변경 성공"),
+            200: PasswordChangeResponseSerializer,
             400: OpenApiResponse(description="잘못된 요청"),
             401: OpenApiResponse(description="인증 실패"),
+            500: OpenApiResponse(description="서버 오류"),
         },
     )
     def post(self, request: Request) -> Response:
@@ -844,14 +952,14 @@ class PasswordChangeView(APIView):
             user.set_password(new_password)
             user.save()
 
-            # 선택사항: 비밀번호 변경 알림 이메일 발송
-            send_mail(
-                subject="[DeSub] 비밀번호가 변경되었습니다",
-                message=f"{user.name}님의 비밀번호가 변경되었습니다. 본인이 아닌 경우 즉시 고객센터로 문의해주세요.",
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[user.email],
-                fail_silently=True,
-            )
+            # # 선택사항: 비밀번호 변경 알림 이메일 발송
+            # send_mail(
+            #     subject="[DeSub] 비밀번호가 변경되었습니다",
+            #     message=f"{user.name}님의 비밀번호가 변경되었습니다. 본인이 아닌 경우 즉시 고객센터로 문의해주세요.",
+            #     from_email=settings.EMAIL_HOST_USER,
+            #     recipient_list=[user.email],
+            #     fail_silently=True,
+            # )
 
             # 토큰 재발급 (선택사항)
             refresh = RefreshToken.for_user(user)
@@ -859,8 +967,8 @@ class PasswordChangeView(APIView):
             return Response(
                 {
                     "message": "비밀번호가 성공적으로 변경되었습니다.",
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
+                    "access_token": str(refresh.access_token),
+                    "refresh_token": str(refresh),
                 },
                 status=status.HTTP_200_OK,
             )
