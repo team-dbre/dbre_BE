@@ -12,6 +12,8 @@ from django.conf import settings
 from django.contrib.auth.signals import user_logged_in
 from django.core.cache import cache
 from django.core.files.uploadedfile import UploadedFile
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 from django_redis import get_redis_connection
@@ -62,7 +64,6 @@ from user.serializers import (
     UserUpdateResponseSerializer,
     UserUpdateSerializer,
 )
-from user.tasks import send_reset_password_email
 from user.utils import (
     format_phone_for_twilio,
     get_google_access_token,
@@ -249,6 +250,11 @@ class LogoutView(GenericAPIView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
+            # access token도 blacklist에 추가
+            access_token = request.auth
+            if access_token:
+                RefreshToken(access_token).blacklist()
+
             refresh_token = serializer.validated_data["refresh_token"]
             RefreshToken(refresh_token).blacklist()
 
@@ -262,10 +268,9 @@ class LogoutView(GenericAPIView):
             response.delete_cookie("refresh_token")
 
             return response
-
-        except TokenError:
+        except TokenError as e:
             return Response(
-                {"message": "유효하지 않은 리프레쉬 토큰입니다."},
+                {"message": "유효하지 않은 토큰입니다.", "detail": str(e)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -869,25 +874,21 @@ class PasswordResetView(APIView):
             user.set_password(temp_password)
             user.save()
 
-            # # 이메일 내용 구성
-            # subject = "[DeSub] 임시 비밀번호가 발급되었습니다"
-            # html_message = render_to_string(
-            #     "password_reset_email.html",  # 이메일 템플릿
-            #     {"user": user, "temp_password": temp_password},
-            # )
-            #
-            # # 이메일 발송
-            # send_mail(
-            #     subject=subject,
-            #     message="",
-            #     from_email=settings.EMAIL_HOST_USER,
-            #     recipient_list=[email],
-            #     html_message=html_message,
-            #     fail_silently=False,
-            # )
-            # 비동기로 이메일 발송
-            send_reset_password_email.delay(
-                email, {"email": user.email, "name": user.name}, temp_password
+            # 이메일 내용 구성
+            subject = "[DeSub] 임시 비밀번호가 발급되었습니다"
+            html_message = render_to_string(
+                "password_reset_email.html",  # 이메일 템플릿
+                {"user": user, "temp_password": temp_password},
+            )
+
+            # 이메일 발송
+            send_mail(
+                subject=subject,
+                message="",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                html_message=html_message,
+                fail_silently=False,
             )
 
             return Response(
