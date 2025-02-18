@@ -129,8 +129,9 @@ class RefundSerializer(serializers.Serializer):
     """환불 요청 데이터 검증"""
 
     plan_id = serializers.IntegerField()
-    cancelled_reason = serializers.ChoiceField(
-        choices=Subs.cancelled_reason_choices, required=True
+    cancelled_reason = serializers.ListSerializer(
+        child=serializers.ChoiceField(choices=Subs.cancelled_reason_choices),
+        required=True,
     )
     other_reason = serializers.CharField(
         required=False, allow_blank=True, max_length=255
@@ -155,6 +156,11 @@ class RefundSerializer(serializers.Serializer):
         if not subscription.auto_renew:
             raise serializers.ValidationError(
                 {"subscription": "이미 취소된 구독입니다."}
+            )
+
+        if "other" in data.get("cancelled_reason", []) and not data.get("other_reason"):
+            raise serializers.ValidationError(
+                {"other_reason": "기타 사유를 입력해주세요"}
             )
 
         data["subscription"] = subscription
