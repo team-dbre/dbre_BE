@@ -368,18 +368,18 @@ class RefundService:
                     )
 
                 # 빌링키 삭제 요청
-                # billing_deleted = delete_billing_key_with_retry(billing_key)
-                #
-                # if billing_deleted:
-                #     logger.info(f"Billing_Key 삭제 성공: {billing_key}")
-                #     self.subscription.billing_key.delete()
-                #     return {
-                #         "success": True,
-                #         "message": "Billing key deleted successfully",
-                #     }
-                # else:
-                #     logger.warning(f"Billing_Key 삭제 실패: {billing_key}")
-                #     return {"success": False, "message": "Billing key deletion failed"}
+                billing_deleted = delete_billing_key_with_retry(billing_key)
+
+                if billing_deleted:
+                    logger.info(f"Billing_Key 삭제 성공: {billing_key}")
+                    self.subscription.billing_key.delete()
+                    return {
+                        "success": True,
+                        "message": "Billing key deleted successfully",
+                    }
+                else:
+                    logger.warning(f"Billing_Key 삭제 실패: {billing_key}")
+                    return {"success": False, "message": "Billing key deletion failed"}
 
         except Exception as e:
             logger.error(f"빌링키 삭제 실패: {e}")
