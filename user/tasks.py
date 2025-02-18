@@ -3,8 +3,9 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
+
 @shared_task
-def send_reset_password_email(email, user_data, temp_password):
+def send_reset_password_email(email: str, user_data: str, temp_password: str) -> None:
     subject = "[DeSub] 임시 비밀번호가 발급되었습니다"
     html_message = render_to_string(
         "password_reset_email.html",

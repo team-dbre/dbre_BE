@@ -62,13 +62,13 @@ from user.serializers import (
     UserUpdateResponseSerializer,
     UserUpdateSerializer,
 )
+from user.tasks import send_reset_password_email
 from user.utils import (
     format_phone_for_twilio,
     get_google_access_token,
     get_google_user_info,
     normalize_phone_number,
 )
-from user.tasks import send_reset_password_email
 
 
 logger = logging.getLogger(__name__)
@@ -891,9 +891,7 @@ class PasswordResetView(APIView):
             # )
             # 비동기로 이메일 발송
             send_reset_password_email.delay(
-                email,
-                {"email": user.email, "name": user.name},
-                temp_password
+                email, {"email": user.email, "name": user.name}, temp_password
             )
 
             return Response(
