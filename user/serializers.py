@@ -210,6 +210,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                         else None
                     )
                     return {
+                        "plan_id": subscription.plan_id,
                         "end_date": end_date,
                         "remaining_days": (
                             subscription.remaining_bill_date.days
