@@ -22,7 +22,7 @@ from plan.views import (
     PlanDetailView,
     PlanListCreateView,
 )
-from reviews.views import ReviewCreateView
+from reviews.views import ReviewCreateView, ReviewDetailView
 from subscription.views import SubscriptionView, SusHistoryView
 from term.views import CreateTermAPI, LatestTermsAPI, TermsDetailAPI
 from user.views import (
@@ -106,6 +106,7 @@ user_patterns = [
 # review 관련 URL 패턴
 review_patterns = [
     path("", ReviewCreateView.as_view(), name="review_subscription"),
+    path("<int:review_id>/", ReviewDetailView.as_view(), name="review_detail"),
 ]
 
 # Admin 관련 URL 패턴
