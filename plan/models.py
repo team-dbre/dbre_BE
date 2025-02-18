@@ -7,4 +7,4 @@ class Plans(models.Model):
     plan_name = models.CharField(max_length=100)
     price = models.BigIntegerField()
     period = models.CharField(choices=PERIOD_CHOICES, max_length=10)
-    is_active = models.BooleanField(default=True)
+    is_active = models.BooleanField(default=False)
