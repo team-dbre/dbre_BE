@@ -250,10 +250,6 @@ class LogoutView(GenericAPIView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
 
-            # access token도 blacklist에 추가
-            access_token = request.auth
-            if access_token:
-                RefreshToken(access_token).blacklist()
 
             refresh_token = serializer.validated_data["refresh_token"]
             RefreshToken(refresh_token).blacklist()
@@ -268,9 +264,9 @@ class LogoutView(GenericAPIView):
             response.delete_cookie("refresh_token")
 
             return response
-        except TokenError as e:
+        except TokenError:
             return Response(
-                {"message": "유효하지 않은 토큰입니다.", "detail": str(e)},
+                {"message": "유효하지 않은 리프레쉬 토큰입니다."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
