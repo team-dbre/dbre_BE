@@ -15,3 +15,8 @@ CSRF_COOKIE_SECURE = False
 
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+
+INSTALLED_APPS += [
+    "django_celery_beat",
+    "django_celery_results",
+]
