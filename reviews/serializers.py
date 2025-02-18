@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from reviews.models import Review
 from subscription.models import Subs
+from user.models import CustomUser
 
 
 class ReviewSerializer(serializers.ModelSerializer):
@@ -36,3 +37,20 @@ class ReviewSerializer(serializers.ModelSerializer):
 
         review: Review = Review.objects.create(**validated_data)
         return review
+
+
+class ReviewGetSerializer(serializers.ModelSerializer):
+    user = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Review
+        fields = ["id", "user", "subs", "rating", "content", "created_at"]
+        read_only_fields = ["id", "user", "subs", "created_at"]
+
+    def get_user(self, obj: Review) -> Dict[str, Any]:
+        return {
+            "id": obj.user.id,
+            "username": obj.user.name,
+            "email": obj.user.email,
+            "phone": obj.user.phone,
+        }
