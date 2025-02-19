@@ -511,15 +511,25 @@ class SubscriptionService:
             #  구독 중지 처리
             self.subscription.user.sub_status = "paused"
             self.subscription.end_date = None  # 중지 시 만료일 초기화
+            self.subscription.next_bill_date = None  # 중지 시 다음 결제일 초기화
             self.subscription.auto_renew = False  # 자동 갱신 비활성화
             self.subscription.user.save(update_fields=["sub_status"])
             self.subscription.save(
                 update_fields=["end_date", "auto_renew", "remaining_bill_date"]
             )
 
+            SubHistories.objects.create(
+                sub=self.subscription,
+                user=self.subscription.user,
+                plan=self.subscription.plan,
+                change_date=now(),
+                status="pause",
+            )
+
             logger.info(
                 f"구독 중지 완료 - 남은 기간 저장: {self.subscription.remaining_bill_date}"
             )
+
             return {
                 "message": "구독이 중지되었습니다.",
                 "remaining_days": self.subscription.remaining_bill_date.days,
@@ -563,6 +573,14 @@ class SubscriptionService:
             self.subscription.user.save(update_fields=["sub_status"])
             self.subscription.save(
                 update_fields=["start_date", "end_date", "next_bill_date", "auto_renew"]
+            )
+
+            SubHistories.objects.create(
+                sub=self.subscription,
+                user=self.subscription.user,
+                plan=self.subscription.plan,
+                change_date=now(),
+                status="restarted",
             )
 
             # 포트원 예약 결제 다시 생성
