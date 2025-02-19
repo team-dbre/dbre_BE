@@ -35,9 +35,11 @@ from .services.payment_service import (
 )
 from .utils import (
     cancel_scheduled_payments,
+    check_billing_key_status,
     delete_billing_key_with_retry,
     fetch_scheduled_payments,
     schedule_new_payment,
+    update_billing_key_info,
 )
 
 
@@ -73,6 +75,8 @@ class StoreBillingKeyView(APIView):
                 logger.info(
                     f"[StoreBillingKey] Billing Key 저장 성공: {billing_key.billing_key}"
                 )
+
+            update_billing_key_info(billing_key, billing_key.billing_key)
 
             return Response(
                 {
@@ -205,8 +209,7 @@ class UpdateBillingKeyView(APIView):
                 raise ValueError("포트원 빌링키 삭제를 실패했습니다")
 
             # Billing Key 정보 업데이트 (예약 정보 변경 후 저장)
-            billing_key_obj.billing_key = new_billing_key
-            billing_key_obj.save()
+            update_billing_key_info(billing_key_obj, new_billing_key)
 
             serializer = BillingKeySerializer(billing_key_obj)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -256,8 +259,6 @@ class RequestSubscriptionPaymentView(APIView):
             return Response(
                 {
                     "message": "정기 결제 및 다음 결제 예약 성공",
-                    "payment_id": payment.imp_uid,
-                    "next_payment_id": scheduled_payment_id,
                     "next_billing_date": (
                         sub.next_bill_date.isoformat() if sub.next_bill_date else None
                     ),
