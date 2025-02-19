@@ -20,6 +20,7 @@ from portone_server_sdk._generated.payment.payment_schedule.payment_schedule_fil
 from rest_framework import response
 
 from payment import portone_client2
+from payment.models import BillingKey
 from subscription.models import Subs
 from user.models import CustomUser
 
@@ -403,3 +404,37 @@ def fetch_scheduled_cancelled_payments(
     except Exception as e:
         logger.warning(f"예약 결제 조회 실패: {e}")
         return []
+
+
+def update_billing_key_info(billing_key_obj: BillingKey, new_billing_key: str) -> None:
+    """Billing Key 카드 정보 업데이트"""
+    billing_key_obj.billing_key = new_billing_key
+
+    # Billing Key 정보 조회
+    billing_key_info = portone_client2.billing_key.get_billing_key_info(
+        billing_key=new_billing_key
+    )
+
+    # methods(결제 카드 정보) 값 추출
+    if isinstance(billing_key_info, dict):
+        methods = billing_key_info.get("methods", [])
+    elif hasattr(billing_key_info, "methods"):
+        methods = billing_key_info.methods
+    else:
+        methods = []
+
+    # issuer(card name)  number 값 추출
+    if methods:
+        first_method = methods[0]  # 첫 번째 카드 정보 사용
+        billing_key_obj.card_name = (
+            first_method.card.issuer if first_method.card.issuer else "Unknown Card"
+        )
+        billing_key_obj.card_number = first_method.card.number
+    else:
+        billing_key_obj.card_name = None
+        billing_key_obj.card_number = None
+
+    billing_key_obj.save(update_fields=["billing_key", "card_name", "card_number"])
+    logger.info(
+        f"[UpdateBillingKey] 카드 정보 업데이트 완료: {billing_key_obj.card_name}, {billing_key_obj.card_number}"
+    )
