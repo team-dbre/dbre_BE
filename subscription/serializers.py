@@ -10,7 +10,7 @@ class SubsSerializer(serializers.ModelSerializer):
         model = Subs
         fields = "__all__"
 
-    def get_sub_status(self, obj):
+    def get_sub_status(self, obj: Subs) -> str:
         return obj.user.sub_status
 
 
