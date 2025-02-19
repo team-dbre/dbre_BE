@@ -733,6 +733,9 @@ class UserProfileView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    # def delete(self, request: Request) -> Response:
+
+
 
 class TokenRefreshView(GenericAPIView):
     serializer_class = RefreshTokenSerializer
