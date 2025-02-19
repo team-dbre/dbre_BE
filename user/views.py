@@ -135,7 +135,7 @@ class UserRegistrationView(CreateAPIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["user"],
-        summary="Email 사용 가능 여부",
+        summary="Email 사용 가능 여부(회원가입)",
         description="기존에 존재하는 이메일인지 확인하여 사용가능 여부를 반환합니다.",
         request=EmailCheckSerializer,
         responses={
@@ -807,7 +807,7 @@ class TokenRefreshView(GenericAPIView):
 class UserPhoneCheckView(APIView):
     @extend_schema(
         tags=["user"],
-        summary="휴대폰 번호로 계정 확인",
+        summary="휴대폰 번호로 계정 확인(계정찾기)",
         description="휴대폰 번호로 가입된 계정이 있는지 확인하고 가입 방식을 반환합니다.",
         request=PhoneCheckRequestSerializer,
         responses={200: PhoneCheckResponseSerializer},
@@ -847,7 +847,7 @@ class PasswordResetView(APIView):
 
     @extend_schema(
         tags=["user"],
-        summary="비밀번호 초기화 요청",
+        summary="비밀번호 초기화 요청(메일 발송)",
         description="이메일을 입력받아 임시 비밀번호를 생성하고 메일로 발송합니다.",
         request=PasswordResetRequestSerializer,
         responses={200: PasswordResetResponseSerializer},
