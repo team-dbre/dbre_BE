@@ -483,6 +483,25 @@ class RequestVerificationView(APIView):
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
+            # 에러 메시지 형식 변경
+            if (
+                "phone" in serializer.errors
+                and "올바른 휴대폰 번호 형식이 아닙니다."
+                in str(serializer.errors["phone"])
+            ):
+                return Response(
+                    {"error": "올바른 휴대폰 번호 형식이 아닙니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if (
+                "phone" in serializer.errors
+                and "동일한 휴대폰번호로 가입된 계정이 있습니다."
+                in str(serializer.errors["phone"])
+            ):
+                return Response(
+                    {"error": "동일한 전화번호로 가입된 계정이 있습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         phone = serializer.validated_data["phone"]
@@ -501,7 +520,7 @@ class RequestVerificationView(APIView):
             print(f"Twilio Error: {str(e)}")
             error_message = "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요."
             if "60238" in str(e):  # Verify 서비스 블록 에러
-                error_message = "잠시 후 다시 시도해주세요."
+                error_message = "Verify 서비스 블록 에러입니다. 관리자에게 문의해주세요"
 
             return Response(
                 {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
@@ -550,7 +569,9 @@ class VerifyPhoneView(APIView):
 
             if verification_check.status == "approved":
                 cache.set(f"phone_verified:{phone}", "true", timeout=300)
-                return Response({"message": "인증이 완료되었습니다."})
+                return Response(
+                    {"message": "인증이 완료되었습니다."}, status=status.HTTP_200_OK
+                )
             else:
                 return Response(
                     {"error": "잘못된 인증번호입니다."},
@@ -734,7 +755,6 @@ class UserProfileView(APIView):
             )
 
     # def delete(self, request: Request) -> Response:
-
 
 
 class TokenRefreshView(GenericAPIView):
