@@ -89,7 +89,7 @@ class PlanDetailView(APIView):
         plan.is_active = False
         plan.save(update_fields=["is_active"])
         return Response(
-            {"message": "플랜이 비활성화되었습니다."}, status=status.HTTP_204_NO_CONTENT
+            {"message": "플랜이 비활성화되었습니다."}, status=status.HTTP_200_OK
         )
 
 
