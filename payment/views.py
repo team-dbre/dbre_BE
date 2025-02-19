@@ -1,20 +1,13 @@
-import hashlib
-import hmac
 import json
 import logging
-import uuid
 
 from typing import Any
 
-import requests
-
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
 from django.utils.decorators import method_decorator
-from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -23,21 +16,17 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from payment.models import BillingKey, Pays
-from payment.services.web_hook_service import WebhookService, verify_signature
+from payment.models import BillingKey
+from payment.services.web_hook_service import verify_signature
 from subscription.models import Subs
-from user.models import CustomUser
 
-from . import PORTONE_API_URL2, portone_client2
 from .serializers import (
     BillingKeySerializer,
-    GetBillingKeySerializer,
     PauseSubscriptionSerializer,
     RefundResponseSerializer,
     RefundSerializer,
     ResumeSubscriptionSerializer,
     SubscriptionPaymentSerializer,
-    WebhookSerializer,
 )
 from .services.payment_service import (
     RefundService,
@@ -124,9 +113,7 @@ class StoreBillingKeyView(APIView):
         billing_key_obj.delete()
         logger.info(f"빌링키 삭제 성공 {user.id}")
 
-        return Response(
-            {"message": "빌링키 삭제 성공"}, status=status.HTTP_204_NO_CONTENT
-        )
+        return Response({"message": "빌링키 삭제 성공"}, status=status.HTTP_200_OK)
 
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
 
