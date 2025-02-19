@@ -7,6 +7,8 @@ from django.core.validators import RegexValidator
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from payment.models import BillingKey
+from plan.models import Plans
 from subscription.models import Subs
 
 from .models import CustomUser
@@ -216,7 +218,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def get_subscription_info(
         self, obj: CustomUser
-    ) -> Optional[Dict[str, Optional[Union[datetime, int]]]]:
+    ) -> Optional[Dict[str, Optional[Union[datetime, int, str]]]]:
         if obj.sub_status in ["active", "paused"]:
             try:
                 subscription = Subs.objects.filter(user=obj).first()
@@ -227,6 +229,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
                         if subscription.end_date
                         else None
                     )
+                    next_bill_date = (
+                        subscription.next_bill_date + timedelta(hours=9)
+                        if subscription.next_bill_date
+                        else None
+                    )
+
+                    card_name: Optional[str] = None
+                    card_number: Optional[str] = None
+                    billingkey = BillingKey.objects.filter(user=obj).first()
+                    if billingkey is not None:
+                        card_name = billingkey.card_name
+                        card_number = billingkey.card_number
+
+                    payment_amount: Optional[int] = None
+                    plan = Plans.objects.filter(id=subscription.plan_id).first()
+                    if plan is not None:
+                        payment_amount = plan.price
+
                     return {
                         "plan_id": subscription.plan_id,
                         "end_date": end_date,
@@ -235,6 +255,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
                             if subscription.remaining_bill_date
                             else None
                         ),
+                        "card_name": card_name,
+                        "card_number": card_number,
+                        "next_bill_date": next_bill_date,
+                        "payment_amount": payment_amount,
                     }
             except Subs.DoesNotExist:
                 return None

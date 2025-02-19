@@ -112,12 +112,16 @@ class UserRegistrationView(CreateAPIView):
         )
 
         # 최신 약관 정보 가져오기
-        latest_terms = Terms.objects.latest("created_at")
+        try:
+            latest_terms = Terms.objects.latest("created_at")
+            terms_url = f"/terms/{latest_terms.id}"
+        except Terms.DoesNotExist:
+            terms_url = None
 
         # 하나의 약관 동의 레코드 생성
         Agreements.objects.create(
             user=user,
-            terms_url=f"/terms/{latest_terms.id}",
+            terms_url=terms_url,
             agreed_at=timezone.now(),
             marketing=serializer.validated_data.get("marketing_agreement", False),
         )
@@ -389,10 +393,16 @@ class GoogleLoginView(GenericAPIView):
                     img_url=user_info.get("picture"),
                 )
 
-                latest_terms = Terms.objects.latest("created_at")
+                # 최신 약관 정보 가져오기
+                try:
+                    latest_terms = Terms.objects.latest("created_at")
+                    terms_url = f"/terms/{latest_terms.id}"
+                except Terms.DoesNotExist:
+                    terms_url = None
+
                 Agreements.objects.create(
                     user=user,
-                    terms_url=f"/terms/{latest_terms.id}",
+                    terms_url=terms_url,
                     agreed_at=timezone.now(),
                     marketing=False,
                 )
