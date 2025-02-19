@@ -389,89 +389,84 @@ class RefundService:
 
     def process_refund(self) -> Dict[str, Any]:
         """환불 요청 처리 및 빌링 해지"""
-        with transaction.atomic():
-            try:
-                requested_plan = self.subscription.plan
+        try:
+            requested_plan = self.subscription.plan
+            logger.info(
+                f"요청 된 구독 플랜: {requested_plan.id} {requested_plan.plan_name}"
+            )
+
+            payment = (
+                Pays.objects.filter(user=self.user, subs=self.subscription)
+                .order_by("-id")
+                .first()
+            )
+            if not payment:
+                raise ValueError("환불할 결제 정보를 찾을 수 없습니다.")
+
+            # 요청된 플랜과 결제된 플랜이 일치하는지 확인
+            if payment.subs.plan.id != requested_plan.id:
+                logger.error(
+                    f" 요청된 플랜({requested_plan.id})과 결제된 플랜({payment.subs.plan.id})가 다릅니다"
+                )
+                raise ValueError("취소 요청한 구독 플랜과 일치하지 않는 결제건입니다")
+
+            # 환불 금액 계산
+            refund_amount = self.calculate_refund_amount(payment)
+            if refund_amount <= 0:
+                raise ValueError("이미 사용한 일수가 많아 환불할 금액이 없습니다.")
+
+            refund_response = self.request_refund(payment, refund_amount)
+
+            # 환불 성공 후 빌링 키 삭제 및 구독 비활성화
+            if refund_response["success"]:
+                self.subscription.auto_renew = False
+                self.subscription.cancelled_reason = self.cancel_reason
+                self.subscription.other_reason = self.other_reason
+                self.subscription.save(
+                    update_fields=["auto_renew", "cancelled_reason", "other_reason"]
+                )
+
+                self.subscription.user.sub_status = "cancelled"
+                self.subscription.user.save(update_fields=["sub_status"])
+
+                SubHistories.objects.create(
+                    sub=self.subscription,
+                    user=self.user,
+                    plan=self.subscription.plan,
+                    change_date=now(),
+                    status="cancel",
+                )
                 logger.info(
-                    f"요청 된 구독 플랜: {requested_plan.id} {requested_plan.plan_name}"
+                    f" 구독 히스토리 생성 완료: {self.subscription.user.id}, {self.subscription.plan.plan_name}"
                 )
 
-                payment = (
-                    Pays.objects.filter(user=self.user, subs=self.subscription)
-                    .order_by("-id")
-                    .first()
-                )
-                if not payment:
-                    raise ValueError("환불할 결제 정보를 찾을 수 없습니다.")
-
-                # 요청된 플랜과 결제된 플랜이 일치하는지 확인
-                if payment.subs.plan.id != requested_plan.id:
-                    logger.error(
-                        f" 요청된 플랜({requested_plan.id})과 결제된 플랜({payment.subs.plan.id})가 다릅니다"
-                    )
-                    raise ValueError(
-                        "취소 요청한 구독 플랜과 일치하지 않는 결제건입니다"
-                    )
-
-                # 환불 금액 계산
-                refund_amount = self.calculate_refund_amount(payment)
-                if refund_amount <= 0:
-                    raise ValueError("이미 사용한 일수가 많아 환불할 금액이 없습니다.")
-
-                refund_response = self.request_refund(payment, refund_amount)
-
-                # 환불 성공 후 빌링 키 삭제 및 구독 비활성화
-                if refund_response["success"]:
-                    self.subscription.auto_renew = False
-                    self.subscription.cancelled_reason = self.cancel_reason
-                    self.subscription.other_reason = self.other_reason
-                    self.subscription.save(
-                        update_fields=["auto_renew", "cancelled_reason", "other_reason"]
-                    )
-
-                    self.subscription.user.sub_status = "cancelled"
-                    self.subscription.user.save(update_fields=["sub_status"])
-
-                    SubHistories.objects.create(
-                        sub=self.subscription,
-                        user=self.user,
-                        plan=self.subscription.plan,
-                        change_date=now(),
-                        status="cancel",
-                    )
-                    logger.info(
-                        f" 구독 히스토리 생성 완료: {self.subscription.user.id}, {self.subscription.plan.plan_name}"
-                    )
-
-                    billing_cancelled = self.cancel_billing_key()
-                    if billing_cancelled is None:
-                        billing_cancelled = False
-                        logger.warning("환불은 성공했지만, 빌링키 삭제에 실패했습니다.")
-                        return {
-                            "message": "환불 성공, 하지만 빌링키 삭제에 실패했습니다.",
-                            "refund_amount": refund_amount,
-                        }
-
-                    payment.status = "REFUNDED"
-                    payment.refund_amount = Decimal(refund_amount)
-                    payment.save(update_fields=["status", "refund_amount"])
-
+                billing_cancelled = self.cancel_billing_key()
+                if billing_cancelled is None:
+                    billing_cancelled = False
+                    logger.warning("환불은 성공했지만, 빌링키 삭제에 실패했습니다.")
                     return {
-                        "message": "환불 성공",
+                        "message": "환불 성공, 하지만 빌링키 삭제에 실패했습니다.",
                         "refund_amount": refund_amount,
-                        "cancelled_reason": self.cancel_reason,
-                        "other_reason": self.other_reason,
                     }
 
-            except ValueError as e:
-                logger.error(f"환불 실패: {str(e)}", exc_info=True)
-                return {"error": str(e)}
+                payment.status = "REFUNDED"
+                payment.refund_amount = Decimal(refund_amount)
+                payment.save(update_fields=["status", "refund_amount"])
 
-            except Exception as e:
-                logger.error(f"예상치 못한 오류 발생: {str(e)}", exc_info=True)
                 return {
-                    "error": "예상치 못한 오류가 발생했습니다. 관리자에게 문의하세요."
+                    "message": "환불 성공",
+                    "refund_amount": refund_amount,
+                    "cancelled_reason": self.cancel_reason,
+                    "other_reason": self.other_reason,
                 }
+
+        except ValueError as e:
+            logger.error(f"환불 실패: {str(e)}", exc_info=True)
+            return {"error": str(e)}
+
+        except Exception as e:
+            logger.error(f"예상치 못한 오류 발생: {str(e)}", exc_info=True)
+            return {"error": "예상치 못한 오류가 발생했습니다. 관리자에게 문의하세요."}
         logger.warning(" 예상치 못한 실행 경로 발견: process_refund에서 반환되지 않음")
         return {"error": "알 수 없는 오류가 발생했습니다. 관리자에게 문의하세요."}
 
@@ -517,9 +512,18 @@ class SubscriptionService:
                 update_fields=["end_date", "auto_renew", "remaining_bill_date"]
             )
 
+            SubHistories.objects.create(
+                sub=self.subscription,
+                user=self.subscription.user,
+                plan=self.subscription.plan,
+                change_date=now(),
+                status="pause",
+            )
+
             logger.info(
                 f"구독 중지 완료 - 남은 기간 저장: {self.subscription.remaining_bill_date}"
             )
+
             return {
                 "message": "구독이 중지되었습니다.",
                 "remaining_days": self.subscription.remaining_bill_date.days,
@@ -563,6 +567,14 @@ class SubscriptionService:
             self.subscription.user.save(update_fields=["sub_status"])
             self.subscription.save(
                 update_fields=["start_date", "end_date", "next_bill_date", "auto_renew"]
+            )
+
+            SubHistories.objects.create(
+                sub=self.subscription,
+                user=self.subscription.user,
+                plan=self.subscription.plan,
+                change_date=now(),
+                status="restarted",
             )
 
             # 포트원 예약 결제 다시 생성

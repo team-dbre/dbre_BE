@@ -1,20 +1,13 @@
-import hashlib
-import hmac
 import json
 import logging
-import uuid
 
 from typing import Any
 
-import requests
-
-from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
-from django.http import HttpRequest, HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.http import HttpRequest, HttpResponse
+from django.shortcuts import render
 from django.utils.decorators import method_decorator
-from django.utils.timezone import now
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
@@ -23,21 +16,17 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from payment.models import BillingKey, Pays
-from payment.services.web_hook_service import WebhookService, verify_signature
+from payment.models import BillingKey
+from payment.services.web_hook_service import verify_signature
 from subscription.models import Subs
-from user.models import CustomUser
 
-from . import PORTONE_API_URL2, portone_client2
 from .serializers import (
     BillingKeySerializer,
-    GetBillingKeySerializer,
     PauseSubscriptionSerializer,
     RefundResponseSerializer,
     RefundSerializer,
     ResumeSubscriptionSerializer,
     SubscriptionPaymentSerializer,
-    WebhookSerializer,
 )
 from .services.payment_service import (
     RefundService,
@@ -46,9 +35,11 @@ from .services.payment_service import (
 )
 from .utils import (
     cancel_scheduled_payments,
+    check_billing_key_status,
     delete_billing_key_with_retry,
     fetch_scheduled_payments,
     schedule_new_payment,
+    update_billing_key_info,
 )
 
 
@@ -84,6 +75,8 @@ class StoreBillingKeyView(APIView):
                 logger.info(
                     f"[StoreBillingKey] Billing Key 저장 성공: {billing_key.billing_key}"
                 )
+
+            update_billing_key_info(billing_key, billing_key.billing_key)
 
             return Response(
                 {
@@ -124,9 +117,7 @@ class StoreBillingKeyView(APIView):
         billing_key_obj.delete()
         logger.info(f"빌링키 삭제 성공 {user.id}")
 
-        return Response(
-            {"message": "빌링키 삭제 성공"}, status=status.HTTP_204_NO_CONTENT
-        )
+        return Response({"message": "빌링키 삭제 성공"}, status=status.HTTP_200_OK)
 
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
 
@@ -218,8 +209,7 @@ class UpdateBillingKeyView(APIView):
                 raise ValueError("포트원 빌링키 삭제를 실패했습니다")
 
             # Billing Key 정보 업데이트 (예약 정보 변경 후 저장)
-            billing_key_obj.billing_key = new_billing_key
-            billing_key_obj.save()
+            update_billing_key_info(billing_key_obj, new_billing_key)
 
             serializer = BillingKeySerializer(billing_key_obj)
             return Response(serializer.data, status=status.HTTP_200_OK)
@@ -269,8 +259,6 @@ class RequestSubscriptionPaymentView(APIView):
             return Response(
                 {
                     "message": "정기 결제 및 다음 결제 예약 성공",
-                    "payment_id": payment.imp_uid,
-                    "next_payment_id": scheduled_payment_id,
                     "next_billing_date": (
                         sub.next_bill_date.isoformat() if sub.next_bill_date else None
                     ),
