@@ -135,7 +135,7 @@ class UserRegistrationView(CreateAPIView):
 @extend_schema_view(
     post=extend_schema(
         tags=["user"],
-        summary="Email 사용 가능 여부",
+        summary="Email 사용 가능 여부(회원가입)",
         description="기존에 존재하는 이메일인지 확인하여 사용가능 여부를 반환합니다.",
         request=EmailCheckSerializer,
         responses={
@@ -483,6 +483,25 @@ class RequestVerificationView(APIView):
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(data=request.data)
         if not serializer.is_valid():
+            # 에러 메시지 형식 변경
+            if (
+                "phone" in serializer.errors
+                and "올바른 휴대폰 번호 형식이 아닙니다."
+                in str(serializer.errors["phone"])
+            ):
+                return Response(
+                    {"error": "올바른 휴대폰 번호 형식이 아닙니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if (
+                "phone" in serializer.errors
+                and "동일한 휴대폰번호로 가입된 계정이 있습니다."
+                in str(serializer.errors["phone"])
+            ):
+                return Response(
+                    {"error": "동일한 전화번호로 가입된 계정이 있습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         phone = serializer.validated_data["phone"]
@@ -501,7 +520,7 @@ class RequestVerificationView(APIView):
             print(f"Twilio Error: {str(e)}")
             error_message = "인증번호 발송에 실패했습니다. 잠시 후 다시 시도해주세요."
             if "60238" in str(e):  # Verify 서비스 블록 에러
-                error_message = "잠시 후 다시 시도해주세요."
+                error_message = "Verify 서비스 블록 에러입니다. 관리자에게 문의해주세요"
 
             return Response(
                 {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
@@ -550,7 +569,9 @@ class VerifyPhoneView(APIView):
 
             if verification_check.status == "approved":
                 cache.set(f"phone_verified:{phone}", "true", timeout=300)
-                return Response({"message": "인증이 완료되었습니다."})
+                return Response(
+                    {"message": "인증이 완료되었습니다."}, status=status.HTTP_200_OK
+                )
             else:
                 return Response(
                     {"error": "잘못된 인증번호입니다."},
@@ -733,6 +754,8 @@ class UserProfileView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    # def delete(self, request: Request) -> Response:
+
 
 class TokenRefreshView(GenericAPIView):
     serializer_class = RefreshTokenSerializer
@@ -807,7 +830,7 @@ class TokenRefreshView(GenericAPIView):
 class UserPhoneCheckView(APIView):
     @extend_schema(
         tags=["user"],
-        summary="휴대폰 번호로 계정 확인",
+        summary="휴대폰 번호로 계정 확인(계정찾기)",
         description="휴대폰 번호로 가입된 계정이 있는지 확인하고 가입 방식을 반환합니다.",
         request=PhoneCheckRequestSerializer,
         responses={200: PhoneCheckResponseSerializer},
@@ -847,7 +870,7 @@ class PasswordResetView(APIView):
 
     @extend_schema(
         tags=["user"],
-        summary="비밀번호 초기화 요청",
+        summary="비밀번호 초기화 요청(메일 발송)",
         description="이메일을 입력받아 임시 비밀번호를 생성하고 메일로 발송합니다.",
         request=PasswordResetRequestSerializer,
         responses={200: PasswordResetResponseSerializer},

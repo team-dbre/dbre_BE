@@ -4,7 +4,8 @@ from typing import Dict, Optional, Union
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.validators import RegexValidator
-from rest_framework import serializers
+from rest_framework import serializers, status
+from rest_framework.response import Response
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from subscription.models import Subs
@@ -157,9 +158,17 @@ class PhoneVerificationRequestSerializer(serializers.Serializer):
             normalized = normalize_phone_number(value)
             if not normalized.startswith("010-"):
                 raise serializers.ValidationError("올바른 휴대폰 번호 형식이 아닙니다.")
+
+            # 전화번호 중복 체크
+            if CustomUser.objects.filter(phone=normalized).exists():
+                raise serializers.ValidationError(
+                    "동일한 휴대폰번호로 가입된 계정이 있습니다."
+                )
+
             return normalized
-        except Exception:
-            raise serializers.ValidationError("올바른 휴대폰 번호 형식이 아닙니다.")
+
+        except Exception as e:
+            raise serializers.ValidationError(str(e))
 
 
 class PhoneVerificationConfirmSerializer(serializers.Serializer):
