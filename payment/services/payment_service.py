@@ -506,7 +506,6 @@ class SubscriptionService:
             #  구독 중지 처리
             self.subscription.user.sub_status = "paused"
             self.subscription.end_date = None  # 중지 시 만료일 초기화
-            self.subscription.next_bill_date = None  # 중지 시 다음 결제일 초기화
             self.subscription.auto_renew = False  # 자동 갱신 비활성화
             self.subscription.user.save(update_fields=["sub_status"])
             self.subscription.save(
