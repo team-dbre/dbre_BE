@@ -6,7 +6,12 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-from admin_api.views import CreateAdminView
+from admin_api.views import (
+    CreateAdminView,
+    DashboardView,
+    SubscriptionHistoryListView,
+    SubscriptionListView,
+)
 from payment.views import (
     PauseSubscriptionView,
     PortOneWebhookView,
@@ -111,7 +116,14 @@ review_patterns = [
 
 # Admin 관련 URL 패턴
 admin_patterns = [
+    path("dashboard/", DashboardView.as_view(), name="dashboard"),
     path("create-admin/", CreateAdminView.as_view(), name="create-admin"),
+    path("subscriptions/", SubscriptionListView.as_view(), name="subscription-list"),
+    path(
+        "subscriptions/history/",
+        SubscriptionHistoryListView.as_view(),
+        name="subscription-history",
+    ),
 ]
 
 # 메인 URL 패턴
