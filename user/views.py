@@ -600,6 +600,7 @@ class SavePhoneNumberView(APIView):
 
         try:
             phone = normalize_phone_number(serializer.validated_data["phone"])
+            marketing_agreement = serializer.validated_data.get("marketing_agreement", False)
 
             # 전화번호 중복 검사
             if CustomUser.objects.filter(phone=phone).exists():
@@ -628,7 +629,13 @@ class SavePhoneNumberView(APIView):
             request.user.phone = phone
             request.user.save()
 
-            return Response({"message": "전화번호가 저장되었습니다."})
+            # 마케팅 동의 정보 업데이트
+            agreement = Agreements.objects.filter(user=request.user).first()
+            if agreement and marketing_agreement:
+                agreement.marketing = marketing_agreement
+                agreement.save()
+
+            return Response({"message": "전화번호가 저장되었습니다."}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -4,8 +4,7 @@ from typing import Dict, Optional, Union
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.validators import RegexValidator
-from rest_framework import serializers, status
-from rest_framework.response import Response
+from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from subscription.models import Subs
@@ -189,6 +188,16 @@ class PhoneVerificationConfirmSerializer(serializers.Serializer):
 
 class PhoneNumberSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=20)
+    marketing_agreement = serializers.BooleanField(
+        write_only=True, required=False, default=False
+    )
+
+    class Meta:
+        model = CustomUser
+        fields = (
+            "phone",
+            "marketing_agreement",
+        )
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
