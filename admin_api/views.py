@@ -117,10 +117,10 @@ class SubscriptionListView(APIView):
         # 첫 구독일 기준 정렬 (히스토리에서 가져옴)
         if sort_by == "change_date":
             subscriptions = subscriptions.annotate(
-                latest_change_date=SubHistories.objects.filter(sub=OuterRef("id"))
+                first_change_date=SubHistories.objects.filter(sub=OuterRef("id"))
                 .order_by("-change_date")
                 .values("change_date")[:1]
-            ).order_by(f"{'-' if order == 'desc' else ''}latest_change_date")
+            ).order_by(f"{'-' if order == 'desc' else ''}first_change_date")
         else:
             order_by_field = f"-{sort_by}" if order == "desc" else sort_by
             subscriptions = subscriptions.order_by(order_by_field)
