@@ -78,6 +78,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -273,6 +274,11 @@ LOGGING = {
             "propagate": True,
         },
         "payment": {
+            "handlers": ["console"],
+            "level": "DEBUG",
+            "propagate": False,
+        },
+        "django.db.backends": {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,

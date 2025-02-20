@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Optional, Union
 
 from django.contrib.auth import get_user_model
@@ -91,26 +91,29 @@ class LoginSerializer(TokenObtainPairSerializer):
         help_text="로그인 비밀번호",
     )
 
+    class Meta:
+        fields = ("email", "password")
+
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         # 이메일 존재 여부 먼저 확인
         User = get_user_model()
         try:
-            user = User.objects.get(email=attrs["email"])
+            self.user = User.objects.get(email=attrs["email"])
 
             # is_active 체크
-            if not user.is_active:
+            if not self.user.is_active:
                 raise serializers.ValidationError(
                     "비활성화된 계정입니다. 관리자나 고객센터에 문의해주세요."
                 )
 
             # 구글 소셜 로그인 유저 체크
-            if user.provider == "google":
+            if self.user.provider == "google":
                 raise serializers.ValidationError(
                     "구글 소셜 로그인으로 가입된 계정입니다."
                 )
 
             # 비밀번호 검증
-            if not user.check_password(attrs["password"]):
+            if not self.user.check_password(attrs["password"]):
                 raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
 
         except ObjectDoesNotExist:
@@ -224,13 +227,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 subscription = Subs.objects.filter(user=obj).first()
                 if subscription:
                     # UTC to KST (+9 hours)
-                    end_date = (
-                        subscription.end_date + timedelta(hours=9)
-                        if subscription.end_date
-                        else None
-                    )
+                    end_date = subscription.end_date if subscription.end_date else None
                     next_bill_date = (
-                        subscription.next_bill_date + timedelta(hours=9)
+                        subscription.next_bill_date
                         if subscription.next_bill_date
                         else None
                     )
