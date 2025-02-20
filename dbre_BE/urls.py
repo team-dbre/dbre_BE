@@ -7,10 +7,11 @@ from drf_spectacular.views import (
 )
 
 from admin_api.views import (
+    AdminLoginView,
     CreateAdminView,
     DashboardView,
     SubscriptionHistoryListView,
-    SubscriptionListView, AdminLoginView,
+    SubscriptionListView,
 )
 from payment.views import (
     PauseSubscriptionView,
