@@ -449,7 +449,9 @@ class PauseSubscriptionView(APIView):
     serializer_class = PauseSubscriptionSerializer
 
     def post(self, request: Request) -> Response:
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -488,7 +490,9 @@ class ResumeSubscriptionView(APIView):
     serializer_class = ResumeSubscriptionSerializer
 
     def post(self, request: Request) -> Response:
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request}
+        )
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
