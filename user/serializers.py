@@ -1,13 +1,11 @@
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, Optional, Union
 
 from django.contrib.auth import get_user_model
-from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from payment.models import BillingKey
 from plan.models import Plans
@@ -100,7 +98,7 @@ class LoginSerializer(TokenObtainPairSerializer):
         # 이메일 존재 여부 먼저 확인
         User = get_user_model()
         try:
-            self.user = User.objects.get(email=attrs["email"])  # self.user 설정
+            self.user = User.objects.get(email=attrs["email"])
 
             # is_active 체크
             if not self.user.is_active:
@@ -230,12 +228,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 if subscription:
                     # UTC to KST (+9 hours)
                     end_date = (
-                        subscription.end_date + timedelta(hours=9)
+                        subscription.end_date
                         if subscription.end_date
                         else None
                     )
                     next_bill_date = (
-                        subscription.next_bill_date + timedelta(hours=9)
+                        subscription.next_bill_date
                         if subscription.next_bill_date
                         else None
                     )
