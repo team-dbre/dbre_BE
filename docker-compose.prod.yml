@@ -25,7 +25,8 @@ services:
       - ./certbot/www:/var/www/certbot
     depends_on:
       - nginx
-    command: certonly --webroot -w /var/www/certbot --force-renewal --email ks3610@gmail.com -d api.desub.kr -d www.api.desub.kr --agree-tos --no-eff-email
+    command: certonly --webroot -w /var/www/certbot --force-renewal --email ks3610@gmail.com -d api.desub.kr --agree-tos --no-eff-email
+
   web:
     build: .
     env_file: .env.prod
@@ -33,7 +34,29 @@ services:
       - ./dbre_BE:/app/dbre_BE
       - ./staticfiles:/app/staticfiles
     working_dir: /app
-    command: poetry run gunicorn --bind 0.0.0.0:8000 dbre_BE.wsgi:application
+    command: >
+      sh -c "
+        poetry run python manage.py collectstatic --noinput &&
+        poetry run gunicorn
+        --workers $((2 * $(nproc) + 1))  # CPU 코어 수에 따른 워커 수 자동 설정
+        --timeout 60
+        --keep-alive 5
+        --max-requests 1000
+        --max-requests-jitter 50
+        --access-logfile -
+        --error-logfile -
+        --log-level info
+        --bind 0.0.0.0:8000
+        dbre_BE.wsgi:application
+      "
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -43,6 +66,11 @@ services:
       - DJANGO_SETTINGS_MODULE=dbre_BE.settings.prod
       - PYTHONPATH=/app:/app/dbre_BE
       - DJANGO_ENV=prod
+    healthcheck:
+      test: [ "CMD", "poetry", "run", "python", "manage.py", "check" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       db:
         condition: service_healthy
@@ -76,6 +104,14 @@ services:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    command: redis-server /usr/local/etc/redis/redis.conf
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -89,11 +125,17 @@ services:
     image: prom/prometheus
     volumes:
       - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+
     networks:
       - dbre_network
 
   grafana:
     image: grafana/grafana
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     depends_on:
       - prometheus
     networks:
