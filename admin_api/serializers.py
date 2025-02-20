@@ -25,6 +25,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
         return user
 
 
+class DashboardSerializer(serializers.Serializer):
+    total_subscriptions = serializers.IntegerField(help_text="전체 구독")
+    new_subscriptions_today = serializers.IntegerField(help_text="신규 구독")
+    paused_subscriptions = serializers.IntegerField(help_text="오늘 구독 일시정지")
+
+
 class SubscriptionSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.name", read_only=True)
     user_email = serializers.CharField(source="user.email", read_only=True)
