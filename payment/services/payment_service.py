@@ -367,25 +367,39 @@ class RefundService:
                         f"특정 플랜 ({plan_id})에 대한 정기 결제 스케줄 취소 완료."
                     )
 
-                # 빌링키 삭제 요청
-                billing_deleted = delete_billing_key_with_retry(billing_key)
-
-                if billing_deleted:
-                    logger.info(f"Billing_Key 삭제 성공: {billing_key}")
-                    self.subscription.billing_key.delete()
-                    return {
-                        "success": True,
-                        "message": "Billing key deleted successfully",
-                    }
-                else:
-                    logger.warning(f"Billing_Key 삭제 실패: {billing_key}")
-                    return {"success": False, "message": "Billing key deletion failed"}
+                return {
+                    "success": True,
+                    "message": "Scheduled payments canceled successfully",
+                }
 
         except Exception as e:
-            logger.error(f"빌링키 삭제 실패: {e}")
+            logger.error(f"예약 결제 취소 실패: {e}")
             return {"success": False, "error": str(e)}
 
-        return {"success": False, "message": "Unexpected error in cancel_billing_key"}
+        return {
+            "success": False,
+            "message": "Unexpected error in cancel_scheduled_payments",
+        }
+
+        # 빌링키 삭제 요청
+        #         billing_deleted = delete_billing_key_with_retry(billing_key)
+        #
+        #         if billing_deleted:
+        #             logger.info(f"Billing_Key 삭제 성공: {billing_key}")
+        #             self.subscription.billing_key.delete()
+        #             return {
+        #                 "success": True,
+        #                 "message": "Billing key deleted successfully",
+        #             }
+        #         else:
+        #             logger.warning(f"Billing_Key 삭제 실패: {billing_key}")
+        #             return {"success": False, "message": "Billing key deletion failed"}
+        #
+        # except Exception as e:
+        #     logger.error(f"빌링키 삭제 실패: {e}")
+        #     return {"success": False, "error": str(e)}
+        #
+        # return {"success": False, "message": "Unexpected error in cancel_billing_key"}
 
     def process_refund(self) -> Dict[str, Any]:
         """환불 요청 처리 및 빌링 해지"""
@@ -441,11 +455,12 @@ class RefundService:
                 )
 
                 billing_cancelled = self.cancel_billing_key()
-                if billing_cancelled is None:
-                    billing_cancelled = False
-                    logger.warning("환불은 성공했지만, 빌링키 삭제에 실패했습니다.")
+                if not billing_cancelled.get("success", False):
+                    logger.warning(
+                        "환불은 성공했지만, 예약된 결제 취소에 실패했습니다."
+                    )
                     return {
-                        "message": "환불 성공, 하지만 빌링키 삭제에 실패했습니다.",
+                        "message": "환불 성공, 하지만 예약된 결제 취소에 실패했습니다.",
                         "refund_amount": refund_amount,
                     }
 
