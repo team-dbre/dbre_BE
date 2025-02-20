@@ -11,8 +11,8 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Review
-        fields = ["id", "user", "subs", "rating", "content", "created_at"]
-        read_only_fields = ["id", "user", "subs", "created_at"]
+        fields = [ "user", "rating", "content", "created_at"]
+        read_only_fields = ["user", "created_at"]
 
     def validate_rating(self, value: int) -> int:
         # 별점 유효성 검사
