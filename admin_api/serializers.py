@@ -119,6 +119,9 @@ class AdminLoginSerializer(TokenObtainPairSerializer):
         help_text="관리자 비밀번호",
     )
 
+    class Meta:
+        fields = ("email", "password")
+
     def validate(self, attrs: dict[str, str]) -> dict[str, Union[str, bool]]:  # type: ignore
         User = get_user_model()
         try:

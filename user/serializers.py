@@ -91,6 +91,9 @@ class LoginSerializer(TokenObtainPairSerializer):
         help_text="로그인 비밀번호",
     )
 
+    class Meta:
+        fields = ("email", "password")
+
     def validate(self, attrs: dict[str, str]) -> dict[str, str]:
         # 이메일 존재 여부 먼저 확인
         User = get_user_model()
