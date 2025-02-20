@@ -1,9 +1,8 @@
 # Admin 관련 URL 패턴
 from django.urls import path
 
-from admin_api.views.admin_views import DashboardView
+from admin_api.views.admin_views import DashboardView, AdminUserView, AdminLoginView
 from admin_api.views.subs_views import SubscriptionHistoryListView, SubscriptionListView
-from admin_api.views.views import AdminLoginView, AdminUserView
 
 
 admin_patterns = [
