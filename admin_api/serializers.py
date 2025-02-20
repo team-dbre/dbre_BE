@@ -1,4 +1,9 @@
+from typing import Union
+
+from django.contrib.auth import get_user_model
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from subscription.models import SubHistories, Subs
 from user.models import CustomUser
@@ -95,3 +100,44 @@ class SubsCancelledSerializer(serializers.ModelSerializer):
 
     # def get_cancelled_date(self, obj):
     #     re
+
+
+class AdminLoginSerializer(TokenObtainPairSerializer):
+    email = serializers.EmailField(
+        required=True, help_text="관리자 이메일 (예: admin@example.com)"
+    )
+    password = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={"input_type": "password"},
+        help_text="관리자 비밀번호",
+    )
+
+    def validate(self, attrs: dict[str, str]) -> dict[str, Union[str, bool]]:  # type: ignore
+        User = get_user_model()
+        try:
+            user = User.objects.get(email=attrs["email"])
+
+            # staff 권한 체크
+            if not user.is_staff:
+                raise serializers.ValidationError("관리자 권한이 없습니다.")
+
+            # is_active 체크
+            if not user.is_active:
+                raise serializers.ValidationError("비활성화된 계정입니다.")
+
+            # 비밀번호 검증
+            if not user.check_password(attrs["password"]):
+                raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
+
+        except ObjectDoesNotExist:
+            raise serializers.ValidationError("존재하지 않는 관리자 계정입니다.")
+
+        data = super().validate(attrs)
+
+        return {
+            "message": "관리자 로그인이 완료되었습니다.",
+            "access_token": data["access"],
+            "refresh_token": data["refresh"],
+            "is_superuser": user.is_superuser,
+        }

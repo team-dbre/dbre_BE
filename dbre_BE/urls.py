@@ -7,6 +7,7 @@ from drf_spectacular.views import (
 )
 
 from admin_api.views import (
+    AdminLoginView,
     CreateAdminView,
     DashboardView,
     SubscriptionHistoryListView,
@@ -81,6 +82,7 @@ admin_patterns = [
         SubscriptionHistoryListView.as_view(),
         name="subscription-history",
     ),
+    path("login/", AdminLoginView.as_view(), name="admin-login"),
 ]
 
 # 메인 URL 패턴
