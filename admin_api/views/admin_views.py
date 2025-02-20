@@ -20,6 +20,7 @@ from admin_api.serializers import (
     DashboardSerializer,
 )
 from subscription.models import SubHistories, Subs
+from user.views import measure_time
 
 
 @extend_schema(tags=["admin"])
@@ -119,6 +120,7 @@ class AdminLoginView(TokenObtainPairView):
             }
         },
     )
+    @measure_time
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
             response = super().post(request, *args, **kwargs)
