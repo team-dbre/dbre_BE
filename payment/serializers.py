@@ -190,46 +190,58 @@ class PauseSubscriptionSerializer(serializers.ModelSerializer):
         fields = ["user", "sub_status", "remaining_bill_date", "end_date", "plan_id"]
         read_only_fields = ["user", "sub_status", "remaining_bill_date", "end_date"]
 
-    def update(self, instance: Subs, validated_data: Dict[str, Any]) -> Subs:
-        """구독 중지 처리"""
-        plan = instance.plan
-        plan_id = validated_data.get("plan_id")
+    def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """구독 상태 active인지 확인"""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
 
-        if instance.user.sub_status != "active":
-            raise serializers.ValidationError("활성화된 구독만 중지할 수 있습니다.")
-
-        if plan_id and plan_id != plan.id:
+        if not user or user.sub_status != "active":
             raise serializers.ValidationError(
-                "해당 유저의 플랜과 입력된 플랜이 일치하지 않습니다."
+                {"error": "구독중인 사용자만 중지할 수 있습니다."}
             )
 
-        # 남은 기간 저장
-        if instance.end_date:
-            remaining_days = (instance.end_date - now()).days
-            instance.remaining_bill_date = timedelta(
-                days=max(remaining_days, 0)
-            )  # 음수 방지
-        else:
-            instance.remaining_bill_date = timedelta(days=0)
+        return data
 
-        # 구독 상태 변경
-        instance.end_date = None  # 중지 시 만료일 초기화
-        instance.user.sub_status = "paused"
-        instance.auto_renew = False  # 자동 갱신 비활성화
-        instance.user.save(update_fields=["sub_status"])
-        instance.save(update_fields=["end_date", "auto_renew", "remaining_bill_date"])
-
-        # 포트원 예약 결제 취소
-        try:
-            if instance.billing_key is None:
-                raise serializers.ValidationError("Billing Key가 존재하지 않습니다.")
-            billing_key = instance.billing_key.billing_key
-            plan_id = instance.plan.id
-            cancel_scheduled_payments(billing_key, plan_id)
-        except AttributeError:
-            logger.warning(f"유저 {instance.user.id}의 빌링키가 없음")
-
-        return instance
+    # def update(self, instance: Subs, validated_data: Dict[str, Any]) -> Subs:
+    #     """구독 중지 처리"""
+    #     plan = instance.plan
+    #     plan_id = validated_data.get("plan_id")
+    #
+    #     if instance.user.sub_status != "active":
+    #         raise serializers.ValidationError("활성화된 구독만 중지할 수 있습니다.")
+    #
+    #     if plan_id and plan_id != plan.id:
+    #         raise serializers.ValidationError(
+    #             "해당 유저의 플랜과 입력된 플랜이 일치하지 않습니다."
+    #         )
+    #
+    #     # 남은 기간 저장
+    #     if instance.end_date:
+    #         remaining_days = (instance.end_date - now()).days
+    #         instance.remaining_bill_date = timedelta(
+    #             days=max(remaining_days, 0)
+    #         )  # 음수 방지
+    #     else:
+    #         instance.remaining_bill_date = timedelta(days=0)
+    #
+    #     # 구독 상태 변경
+    #     instance.end_date = None  # 중지 시 만료일 초기화
+    #     instance.user.sub_status = "paused"
+    #     instance.auto_renew = False  # 자동 갱신 비활성화
+    #     instance.user.save(update_fields=["sub_status"])
+    #     instance.save(update_fields=["end_date", "auto_renew", "remaining_bill_date"])
+    #
+    #     # 포트원 예약 결제 취소
+    #     try:
+    #         if instance.billing_key is None:
+    #             raise serializers.ValidationError("Billing Key가 존재하지 않습니다.")
+    #         billing_key = instance.billing_key.billing_key
+    #         plan_id = instance.plan.id
+    #         cancel_scheduled_payments(billing_key, plan_id)
+    #     except AttributeError:
+    #         logger.warning(f"유저 {instance.user.id}의 빌링키가 없음")
+    #
+    #     return instance
 
 
 class ResumeSubscriptionSerializer(serializers.ModelSerializer):
@@ -258,60 +270,72 @@ class ResumeSubscriptionSerializer(serializers.ModelSerializer):
             "end_date",
         ]
 
-    def update(self, instance: Subs, validated_data: Dict[str, Any]) -> Subs:
-        """구독 재개 처리"""
-        plan_id = validated_data.get("plan_id")
+    def validate(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """구독 상태 paused인지 확인"""
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
 
-        if instance.user.sub_status != "paused":
+        if not user or user.sub_status != "paused":
             raise serializers.ValidationError(
-                "구독이 중지된 상태에서만 재개할 수 있습니다."
+                {"error": "구독이 정지된 사용자만 재개할 수 있습니다."}
             )
 
-        if plan_id and plan_id != instance.plan.id:
-            raise serializers.ValidationError(
-                "해당 유저의 플랜과 입력된 플랜이 일치하지 않습니다."
-            )
+        return data
 
-        # 구독 재개일을 새로운 구독 시작일로 설정
-        new_start_date = now()
-
-        # 저장된 남은 기간을 사용하여 `end_date` 연장
-        if instance.remaining_bill_date:
-            remaining_days = instance.remaining_bill_date.days
-        else:
-            remaining_days = 0  # 예외 처리: 남은 기간이 없을 경우
-
-        if remaining_days <= 0:
-            raise serializers.ValidationError(
-                "남은 구독 기간이 없습니다. 새로 구독해야 합니다."
-            )
-
-        new_end_date = new_start_date + timedelta(days=remaining_days)
-
-        instance.start_date = new_start_date
-        instance.end_date = new_end_date
-        instance.user.sub_status = "active"
-        instance.auto_renew = True  # 자동 갱신 다시 활성화
-        instance.user.save(update_fields=["sub_status"])
-        instance.save(
-            update_fields=[
-                "start_date",
-                "end_date",
-                "auto_renew",
-                "remaining_bill_date",
-            ]
-        )
-
-        # 포트원 예약 결제 다시 설정
-        try:
-            if instance.billing_key is None:
-                raise serializers.ValidationError("Billing Key가 존재하지 않습니다.")
-            billing_key = instance.billing_key.billing_key
-            if not isinstance(plan_id, int):
-                raise serializers.ValidationError("plan_id는 정수형이어야 합니다.")
-            plan_price = instance.plan.price
-            create_scheduled_payment(billing_key, plan_id, plan_price, instance.user)
-        except AttributeError:
-            logger.warning(f"유저 {instance.user.id}의 빌링키가 없음")
-
-        return instance
+    # def update(self, instance: Subs, validated_data: Dict[str, Any]) -> Subs:
+    #     """구독 재개 처리"""
+    #     plan_id = validated_data.get("plan_id")
+    #
+    #     if instance.user.sub_status != "paused":
+    #         raise serializers.ValidationError(
+    #             "구독이 중지된 상태에서만 재개할 수 있습니다."
+    #         )
+    #
+    #     if plan_id and plan_id != instance.plan.id:
+    #         raise serializers.ValidationError(
+    #             "해당 유저의 플랜과 입력된 플랜이 일치하지 않습니다."
+    #         )
+    #
+    #     # 구독 재개일을 새로운 구독 시작일로 설정
+    #     new_start_date = now()
+    #
+    #     # 저장된 남은 기간을 사용하여 `end_date` 연장
+    #     if instance.remaining_bill_date:
+    #         remaining_days = instance.remaining_bill_date.days
+    #     else:
+    #         remaining_days = 0  # 예외 처리: 남은 기간이 없을 경우
+    #
+    #     if remaining_days <= 0:
+    #         raise serializers.ValidationError(
+    #             "남은 구독 기간이 없습니다. 새로 구독해야 합니다."
+    #         )
+    #
+    #     new_end_date = new_start_date + timedelta(days=remaining_days)
+    #
+    #     instance.start_date = new_start_date
+    #     instance.end_date = new_end_date
+    #     instance.user.sub_status = "active"
+    #     instance.auto_renew = True  # 자동 갱신 다시 활성화
+    #     instance.user.save(update_fields=["sub_status"])
+    #     instance.save(
+    #         update_fields=[
+    #             "start_date",
+    #             "end_date",
+    #             "auto_renew",
+    #             "remaining_bill_date",
+    #         ]
+    #     )
+    #
+    #     # 포트원 예약 결제 다시 설정
+    #     try:
+    #         if instance.billing_key is None:
+    #             raise serializers.ValidationError("Billing Key가 존재하지 않습니다.")
+    #         billing_key = instance.billing_key.billing_key
+    #         if not isinstance(plan_id, int):
+    #             raise serializers.ValidationError("plan_id는 정수형이어야 합니다.")
+    #         plan_price = instance.plan.price
+    #         create_scheduled_payment(billing_key, plan_id, plan_price, instance.user)
+    #     except AttributeError:
+    #         logger.warning(f"유저 {instance.user.id}의 빌링키가 없음")
+    #
+    #     return instance
