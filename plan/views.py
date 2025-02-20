@@ -35,7 +35,9 @@ class PlanListCreateView(APIView):
             return [IsAdminUser()]
         return [AllowAny()]
 
-    @extend_schema(responses={200: PlanSerializer(many=True)})
+    @extend_schema(
+        operation_id="get_all_plans", responses={200: PlanSerializer(many=True)}
+    )
     def get(self, request: PlanSerializer) -> Response:
         """구독 플랜 목록 조회"""
         plans = Plans.objects.all()
@@ -65,7 +67,11 @@ class PlanDetailView(APIView):
             return [AllowAny()]
         return [IsAdminUser()]
 
-    @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
+    @extend_schema(
+        operation_id="get_plan_by_id",
+        request=PlanSerializer,
+        responses={200: PlanSerializer(many=True)},
+    )
     def get(self, request: PlanSerializer, plan_id: int) -> Response:
         """구독 플랜 개별 조회"""
         plan = get_object_or_404(Plans, id=plan_id)
