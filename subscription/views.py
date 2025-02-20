@@ -17,6 +17,7 @@ class SubscriptionView(APIView):
     """
 
     permission_classes = (IsAuthenticated,)
+    serializer_class = SubsSerializer
 
     @extend_schema(
         summary="구독 정보 조회",
@@ -47,6 +48,7 @@ class SusHistoryView(APIView):
     """
 
     permission_classes = (IsAuthenticated,)
+    serializer_class = SubHistorySerializer
 
     @extend_schema(
         tags=["subscription"],

@@ -48,6 +48,7 @@ class ReviewDetailView(APIView):
     """
 
     permission_classes = [IsAdminUser]
+    serializer_class = ReviewGetSerializer
 
     def get(self, request: Request, review_id: int) -> Response:
         review = get_object_or_404(Review, id=review_id)

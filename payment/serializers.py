@@ -10,7 +10,7 @@ from rest_framework import serializers
 from payment.models import BillingKey
 from payment.utils import cancel_scheduled_payments, create_scheduled_payment
 from plan.models import Plans
-from subscription.models import Subs
+from subscription.models import SubHistories, Subs
 from user.models import CustomUser
 
 
@@ -130,7 +130,7 @@ class RefundSerializer(serializers.Serializer):
 
     plan_id = serializers.IntegerField()
     cancelled_reason = serializers.ListSerializer(
-        child=serializers.ChoiceField(choices=Subs.cancelled_reason_choices),
+        child=serializers.ChoiceField(choices=SubHistories.cancelled_reason_choices),
         required=True,
     )
     other_reason = serializers.CharField(

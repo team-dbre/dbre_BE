@@ -156,9 +156,7 @@ class SubscriptionPaymentService:
         """다음 결제 예약"""
         current_date = now()
         new_start_date = current_date
-        next_billing_date = (sub.next_bill_date or current_date) + relativedelta(
-            months=1
-        )
+        next_billing_date = current_date + relativedelta(months=1)
         scheduled_payment_id = f"SUBS{uuid.uuid4().hex[:18]}"
 
         if sub.billing_key is None:
@@ -434,10 +432,18 @@ class RefundService:
             # 환불 성공 후 빌링 키 삭제 및 구독 비활성화
             if refund_response["success"]:
                 self.subscription.auto_renew = False
-                self.subscription.cancelled_reason = self.cancel_reason
-                self.subscription.other_reason = self.other_reason
+                self.subscription.billing_key = None
+                self.subscription.end_date = now()
+                self.subscription.remaining_bill_date = None
+                self.subscription.next_bill_date = None
                 self.subscription.save(
-                    update_fields=["auto_renew", "cancelled_reason", "other_reason"]
+                    update_fields=[
+                        "auto_renew",
+                        "billing_key",
+                        "end_date",
+                        "remaining_bill_date",
+                        "next_bill_date",
+                    ]
                 )
 
                 self.subscription.user.sub_status = "cancelled"
@@ -447,6 +453,8 @@ class RefundService:
                     sub=self.subscription,
                     user=self.user,
                     plan=self.subscription.plan,
+                    cancelled_reason=self.cancel_reason,
+                    other_reason=self.other_reason,
                     change_date=now(),
                     status="cancel",
                 )
