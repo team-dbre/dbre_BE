@@ -74,6 +74,18 @@ from user.utils import (
 
 logger = logging.getLogger(__name__)
 
+import time
+from functools import wraps
+
+def measure_time(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print(f"{func.__name__} took {end - start:.2f} seconds to execute")
+        return result
+    return wrapper
 
 @extend_schema_view(
     post=extend_schema(
@@ -201,47 +213,35 @@ class LoginView(TokenObtainPairView):
             }
         },
     )
+    @measure_time
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
-            response = super().post(request, *args, **kwargs)
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-            if response.status_code == 200:
-                # 토큰 정보 가져오기
-                access_token = response.data.get("access_token")
-                refresh_token = response.data.get("refresh_token")
+            response = Response(serializer.validated_data)
+            response["Authorization"] = f"Bearer {serializer.validated_data['access_token']}"
 
-                # Authorization 헤더 설정
-                response["Authorization"] = f"Bearer {access_token}"
+            # 토큰 저장
+            cache.set(
+                f"user_token:{serializer.user.id}",
+                {
+                    "access_token": serializer.validated_data['access_token'],
+                    "refresh_token": serializer.validated_data['refresh_token']
+                },
+                timeout=cast(timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]).total_seconds(),
+            )
 
-                # 시리얼라이저에서 사용자 정보 가져오기
-                serializer = self.get_serializer(data=request.data)
-                serializer.is_valid(raise_exception=True)
-                user = serializer.user  # 인증된 사용자
-
-                # 수동으로 user_logged_in 시그널 발생
-                user_logged_in.send(sender=user.__class__, request=request, user=user)
-
-                # Redis에 토큰 저장
-                cache.set(
-                    f"user_token:{user.id}",
-                    {"access_token": access_token, "refresh_token": refresh_token},
-                    timeout=cast(
-                        timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
-                    ).total_seconds(),
-                )
+            # 로그인 시그널 발생
+            user_logged_in.send(sender=serializer.user.__class__, request=request, user=serializer.user)
 
             return response
 
         except serializers.ValidationError as e:
-
             error_message = e.detail
-
             if isinstance(error_message, dict) and "non_field_errors" in error_message:
                 error_message = error_message["non_field_errors"][0]
-
-            return Response(
-                {"message": error_message}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"message": error_message}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @extend_schema(tags=["user"])

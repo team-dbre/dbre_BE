@@ -2,10 +2,12 @@ from datetime import datetime, timedelta
 from typing import Dict, Optional, Union
 
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 from django.core.exceptions import ObjectDoesNotExist
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from payment.models import BillingKey
 from plan.models import Plans
@@ -98,22 +100,22 @@ class LoginSerializer(TokenObtainPairSerializer):
         # 이메일 존재 여부 먼저 확인
         User = get_user_model()
         try:
-            user = User.objects.get(email=attrs["email"])
+            self.user = User.objects.get(email=attrs["email"])  # self.user 설정
 
             # is_active 체크
-            if not user.is_active:
+            if not self.user.is_active:
                 raise serializers.ValidationError(
                     "비활성화된 계정입니다. 관리자나 고객센터에 문의해주세요."
                 )
 
             # 구글 소셜 로그인 유저 체크
-            if user.provider == "google":
+            if self.user.provider == "google":
                 raise serializers.ValidationError(
                     "구글 소셜 로그인으로 가입된 계정입니다."
                 )
 
             # 비밀번호 검증
-            if not user.check_password(attrs["password"]):
+            if not self.user.check_password(attrs["password"]):
                 raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
 
         except ObjectDoesNotExist:
