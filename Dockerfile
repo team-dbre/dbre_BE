@@ -12,8 +12,17 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VIRTUALENVS_CREATE=false \
     POETRY_NO_INTERACTION=1
 
+# 필수 의존성 설치
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libpq-dev gcc && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install "poetry==$POETRY_VERSION" && \
-    poetry install --no-root --no-interaction --no-ansi
+    pip install "poetry==$POETRY_VERSION"
+
+# 의존성 파일만 먼저 복사
+COPY pyproject.toml poetry.lock ./
+
+# 의존성 설치
+RUN poetry install --no-root --no-interaction --no-ansi
+
+# 나머지 소스코드 복사
+COPY . .
