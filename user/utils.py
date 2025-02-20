@@ -1,4 +1,7 @@
-from typing import Any, Dict, Optional, cast
+import time
+
+from functools import wraps
+from typing import Any, Callable, Dict, Optional, TypeVar, cast
 
 import requests
 
@@ -50,3 +53,18 @@ def format_phone_for_twilio(phone: str) -> str:
     result = f"+82{cleaned[1:]}" if cleaned.startswith("0") else f"+82{cleaned}"
     print(f"Formatted phone: {result}")  # 변환된 번호
     return result
+
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+
+def measure_time(func: F) -> F:
+    @wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        start = time.time()
+        result = func(*args, **kwargs)
+        end = time.time()
+        print(f"{func.__name__} took {end - start:.2f} seconds to execute")
+        return result
+
+    return wrapper  # type: ignore

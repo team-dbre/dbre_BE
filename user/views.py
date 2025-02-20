@@ -68,24 +68,13 @@ from user.utils import (
     format_phone_for_twilio,
     get_google_access_token,
     get_google_user_info,
+    measure_time,
     normalize_phone_number,
 )
 
 
 logger = logging.getLogger(__name__)
 
-import time
-from functools import wraps
-
-def measure_time(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time.time()
-        result = func(*args, **kwargs)
-        end = time.time()
-        print(f"{func.__name__} took {end - start:.2f} seconds to execute")
-        return result
-    return wrapper
 
 @extend_schema_view(
     post=extend_schema(
@@ -220,20 +209,26 @@ class LoginView(TokenObtainPairView):
             serializer.is_valid(raise_exception=True)
 
             response = Response(serializer.validated_data)
-            response["Authorization"] = f"Bearer {serializer.validated_data['access_token']}"
+            response["Authorization"] = (
+                f"Bearer {serializer.validated_data['access_token']}"
+            )
 
             # 토큰 저장
             cache.set(
                 f"user_token:{serializer.user.id}",
                 {
-                    "access_token": serializer.validated_data['access_token'],
-                    "refresh_token": serializer.validated_data['refresh_token']
+                    "access_token": serializer.validated_data["access_token"],
+                    "refresh_token": serializer.validated_data["refresh_token"],
                 },
-                timeout=cast(timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]).total_seconds(),
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
             )
 
             # 로그인 시그널 발생
-            user_logged_in.send(sender=serializer.user.__class__, request=request, user=serializer.user)
+            user_logged_in.send(
+                sender=serializer.user.__class__, request=request, user=serializer.user
+            )
 
             return response
 
@@ -241,7 +236,9 @@ class LoginView(TokenObtainPairView):
             error_message = e.detail
             if isinstance(error_message, dict) and "non_field_errors" in error_message:
                 error_message = error_message["non_field_errors"][0]
-            return Response({"message": error_message}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 @extend_schema(tags=["user"])

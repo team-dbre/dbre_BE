@@ -227,11 +227,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                 subscription = Subs.objects.filter(user=obj).first()
                 if subscription:
                     # UTC to KST (+9 hours)
-                    end_date = (
-                        subscription.end_date
-                        if subscription.end_date
-                        else None
-                    )
+                    end_date = subscription.end_date if subscription.end_date else None
                     next_bill_date = (
                         subscription.next_bill_date
                         if subscription.next_bill_date

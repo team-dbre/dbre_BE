@@ -20,7 +20,7 @@ from admin_api.serializers import (
     DashboardSerializer,
 )
 from subscription.models import SubHistories, Subs
-from user.views import measure_time
+from user.utils import measure_time
 
 
 @extend_schema(tags=["admin"])
@@ -123,32 +123,32 @@ class AdminLoginView(TokenObtainPairView):
     @measure_time
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         try:
-            response = super().post(request, *args, **kwargs)
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
 
-            if response.status_code == 200:
-                access_token = response.data.get("access_token")
-                refresh_token = response.data.get("refresh_token")
-                response["Authorization"] = f"Bearer {access_token}"
+            response = Response(serializer.validated_data)
+            response["Authorization"] = (
+                f"Bearer {serializer.validated_data['access_token']}"
+            )
 
-                serializer = self.get_serializer(data=request.data)
-                serializer.is_valid(raise_exception=True)
-                user = serializer.user
+            # 관리자 로그인 로그 기록
+            AdminLoginLog.objects.create(
+                user=serializer.user,
+                ip_address=request.META.get("REMOTE_ADDR"),
+                user_agent=request.META.get("HTTP_USER_AGENT"),
+            )
 
-                # 관리자 로그인 로그 기록
-                AdminLoginLog.objects.create(
-                    user=user,
-                    ip_address=request.META.get("REMOTE_ADDR"),
-                    user_agent=request.META.get("HTTP_USER_AGENT"),
-                )
-
-                # Redis에 토큰 저장
-                cache.set(
-                    f"admin_token:{user.id}",
-                    {"access_token": access_token, "refresh_token": refresh_token},
-                    timeout=cast(
-                        timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
-                    ).total_seconds(),
-                )
+            # Redis에 토큰 저장
+            cache.set(
+                f"admin_token:{serializer.user.id}",
+                {
+                    "access_token": serializer.validated_data["access_token"],
+                    "refresh_token": serializer.validated_data["refresh_token"],
+                },
+                timeout=cast(
+                    timedelta, settings.SIMPLE_JWT["REFRESH_TOKEN_LIFETIME"]
+                ).total_seconds(),
+            )
 
             return response
 
@@ -157,5 +157,5 @@ class AdminLoginView(TokenObtainPairView):
             if isinstance(error_message, dict) and "non_field_errors" in error_message:
                 error_message = error_message["non_field_errors"][0]
             return Response(
-                {"message": error_message}, status=status.HTTP_400_BAD_REQUEST
+                {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
             )
