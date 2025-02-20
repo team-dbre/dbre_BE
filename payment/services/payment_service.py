@@ -156,9 +156,7 @@ class SubscriptionPaymentService:
         """다음 결제 예약"""
         current_date = now()
         new_start_date = current_date
-        next_billing_date = (sub.next_bill_date or current_date) + relativedelta(
-            months=1
-        )
+        next_billing_date = current_date + relativedelta(months=1)
         scheduled_payment_id = f"SUBS{uuid.uuid4().hex[:18]}"
 
         if sub.billing_key is None:

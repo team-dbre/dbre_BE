@@ -4,6 +4,7 @@ from datetime import date, timedelta
 from typing import Any, Optional
 
 from django.db import models
+from django.utils.timezone import now
 from gunicorn.config import User
 
 from plan.models import Plans
@@ -43,8 +44,13 @@ class Subs(models.Model):
         end_str = self.end_date.strftime("%Y-%m-%d") if self.end_date else "N/A"
         return f"구독 기간: {start_str} - {end_str}"
 
-    def get_plan_price(self) -> float:
-        return self.plan.price
+    @property
+    def remaining_days(self) -> int:
+        """남은 구독 일수 계산"""
+        if self.end_date:
+            remaining_time = self.end_date - now()
+            return max(0, remaining_time.days)
+        return 0
 
     def calculate_next_bill_date(self) -> Optional[date]:
         if self.plan.period == "monthly":
