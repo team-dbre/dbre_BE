@@ -10,7 +10,7 @@ from admin_api.views import (
     CreateAdminView,
     DashboardView,
     SubscriptionHistoryListView,
-    SubscriptionListView,
+    SubscriptionListView, AdminLoginView,
 )
 from payment.views import (
     PauseSubscriptionView,
@@ -81,6 +81,7 @@ admin_patterns = [
         SubscriptionHistoryListView.as_view(),
         name="subscription-history",
     ),
+    path("login/", AdminLoginView.as_view(), name="admin-login"),
 ]
 
 # 메인 URL 패턴
