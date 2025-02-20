@@ -125,7 +125,7 @@ jobs:
             docker system prune -f
             docker-compose -f docker-compose.prod.yml up -d --build
             
-#            Health check function
+            # Health check function
             wait_for_service() {
               echo "Waiting for $1 service to be healthy..."
               timeout=300
@@ -141,8 +141,8 @@ jobs:
               return 1
             }
 
-#            Wait for web service to be healthy
+            # Wait for web service to be healthy
             wait_for_service web
 
-#            Run migrations only after service is healthy
+            # Run migrations only after service is healthy
             docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
