@@ -25,6 +25,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
         return user
 
 
+class DashboardSerializer(serializers.Serializer):
+    total_subscriptions = serializers.IntegerField(help_text="전체 구독")
+    new_subscriptions_today = serializers.IntegerField(help_text="신규 구독")
+    paused_subscriptions = serializers.IntegerField(help_text="오늘 구독 일시정지")
+
+
 class SubscriptionSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.name", read_only=True)
     user_email = serializers.CharField(source="user.email", read_only=True)
@@ -113,21 +119,24 @@ class AdminLoginSerializer(TokenObtainPairSerializer):
         help_text="관리자 비밀번호",
     )
 
+    class Meta:
+        fields = ("email", "password")
+
     def validate(self, attrs: dict[str, str]) -> dict[str, Union[str, bool]]:  # type: ignore
         User = get_user_model()
         try:
-            user = User.objects.get(email=attrs["email"])
+            self.user = User.objects.get(email=attrs["email"])
 
             # staff 권한 체크
-            if not user.is_staff:
+            if not self.user.is_staff:
                 raise serializers.ValidationError("관리자 권한이 없습니다.")
 
             # is_active 체크
-            if not user.is_active:
+            if not self.user.is_active:
                 raise serializers.ValidationError("비활성화된 계정입니다.")
 
             # 비밀번호 검증
-            if not user.check_password(attrs["password"]):
+            if not self.user.check_password(attrs["password"]):
                 raise serializers.ValidationError("비밀번호를 다시 확인해주세요.")
 
         except ObjectDoesNotExist:
@@ -139,5 +148,5 @@ class AdminLoginSerializer(TokenObtainPairSerializer):
             "message": "관리자 로그인이 완료되었습니다.",
             "access_token": data["access"],
             "refresh_token": data["refresh"],
-            "is_superuser": user.is_superuser,
+            "is_superuser": self.user.is_superuser,
         }

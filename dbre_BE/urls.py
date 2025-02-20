@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import (
@@ -6,13 +7,7 @@ from drf_spectacular.views import (
     SpectacularSwaggerView,
 )
 
-from admin_api.views import (
-    AdminLoginView,
-    CreateAdminView,
-    DashboardView,
-    SubscriptionHistoryListView,
-    SubscriptionListView,
-)
+from admin_api.urls import admin_patterns
 from payment.views import (
     PauseSubscriptionView,
     PortOneWebhookView,
@@ -72,18 +67,6 @@ review_patterns = [
     path("<int:review_id>/", ReviewDetailView.as_view(), name="review_detail"),
 ]
 
-# Admin 관련 URL 패턴
-admin_patterns = [
-    path("dashboard/", DashboardView.as_view(), name="dashboard"),
-    path("create-admin/", CreateAdminView.as_view(), name="create-admin"),
-    path("subscriptions/", SubscriptionListView.as_view(), name="subscription-list"),
-    path(
-        "subscriptions/history/",
-        SubscriptionHistoryListView.as_view(),
-        name="subscription-history",
-    ),
-    path("login/", AdminLoginView.as_view(), name="admin-login"),
-]
 
 # 메인 URL 패턴
 urlpatterns = [
@@ -105,3 +88,11 @@ urlpatterns = [
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
 ]
+
+
+if settings.DEBUG:
+    import debug_toolbar
+
+    urlpatterns += [
+        path("__debug__/", include(debug_toolbar.urls)),
+    ]

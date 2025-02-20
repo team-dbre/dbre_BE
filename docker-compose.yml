@@ -29,7 +29,6 @@ services:
       - .env.local
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - /usr/share/zoneinfo:/usr/share/zoneinfo:ro
     environment:
 #      - POSTGRES_USER=${POSTGRES_USER}
 #      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
