@@ -24,7 +24,7 @@ from subscription.models import SubHistories, Subs
 from subscription.serializers import SubsSerializer
 
 
-class CreateAdminView(APIView):
+class AdminUserView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
