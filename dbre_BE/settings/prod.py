@@ -22,9 +22,9 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB (10 * 1024 * 1024)
 FILE_UPLOAD_MAX_MEMORY_SIZE = 10485760  # 10MB
 
 # INSTALLED_APPS에서 제거
-if 'debug_toolbar' in INSTALLED_APPS:
-    INSTALLED_APPS.remove('debug_toolbar')
+if "debug_toolbar" in INSTALLED_APPS:
+    INSTALLED_APPS.remove("debug_toolbar")
 
 # MIDDLEWARE에서 제거
-if 'debug_toolbar.middleware.DebugToolbarMiddleware' in MIDDLEWARE:
-    MIDDLEWARE.remove('debug_toolbar.middleware.DebugToolbarMiddleware')
+if "debug_toolbar.middleware.DebugToolbarMiddleware" in MIDDLEWARE:
+    MIDDLEWARE.remove("debug_toolbar.middleware.DebugToolbarMiddleware")
