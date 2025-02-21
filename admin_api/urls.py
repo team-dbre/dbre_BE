@@ -2,7 +2,13 @@
 from django.urls import path
 
 from admin_api.views.admin_views import AdminLoginView, AdminUserView, DashboardView
-from admin_api.views.subs_views import SubscriptionHistoryListView, SubscriptionListView
+from admin_api.views.subs_views import (
+    AdminCancelReasonView,
+    AdminRefundPendingListView,
+    AdminRefundView,
+    SubscriptionHistoryListView,
+    SubscriptionListView,
+)
 
 
 admin_patterns = [
@@ -15,4 +21,15 @@ admin_patterns = [
         name="subscription-history",
     ),
     path("login/", AdminLoginView.as_view(), name="admin-login"),
+    path(
+        "subscriptions/cancelled/",
+        AdminRefundPendingListView.as_view(),
+        name="admin-구독 취소 관리 페이지",
+    ),
+    path("refund-approve/", AdminRefundView.as_view(), name="admin-환불 승인 post api"),
+    path(
+        "cancel-reasons/count/",
+        AdminCancelReasonView.as_view(),
+        name="구독 취소 사유 count",
+    ),
 ]
