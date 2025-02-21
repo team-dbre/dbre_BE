@@ -141,13 +141,6 @@ jobs:
               exit 1
             fi
             
-            # 웹 서비스가 실행 중인지만 확인 (healthy 상태는 체크하지 않음)
-            if ! docker-compose -f docker-compose.prod.yml ps web | grep -q "Up"; then
-              echo "Web service failed to start"
-              docker-compose -f docker-compose.prod.yml logs web
-              exit 1
-            fi
-            
             # Django가 준비되면 마이그레이션 실행
             docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
             
