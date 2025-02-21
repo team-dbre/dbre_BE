@@ -57,6 +57,7 @@ class SubHistories(models.Model):
         ("cancel", "취소"),
         ("pause", "정지"),
         ("restart", "재개"),
+        ("refund_pending", "환불 대기"),
     ]
     cancelled_reason_choices = [
         ("expensive", "가격이 비싸서"),
