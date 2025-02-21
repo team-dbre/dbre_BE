@@ -1,7 +1,5 @@
 from django.conf import settings
 from django.contrib import admin
-from django.http.request import HttpRequest
-from django.http.response import HttpResponse
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -93,8 +91,10 @@ urlpatterns = [
 
 
 if settings.DEBUG:
-    import debug_toolbar
-
-    urlpatterns += [
-        path("__debug__/", include(debug_toolbar.urls)),
-    ]
+    try:
+        import debug_toolbar
+        urlpatterns += [
+            path("__debug__/", include(debug_toolbar.urls)),
+        ]
+    except ImportError:
+        pass
