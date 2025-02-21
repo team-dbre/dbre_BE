@@ -35,20 +35,11 @@ services:
       - ./staticfiles:/app/staticfiles
     working_dir: /app
     command: >
-      sh -c "
-        poetry run python manage.py collectstatic --noinput &&
-        poetry run gunicorn
-        --workers $((2 * $(nproc) + 1))  # CPU 코어 수에 따른 워커 수 자동 설정
-        --timeout 60
-        --keep-alive 5
-        --max-requests 1000
-        --max-requests-jitter 50
-        --access-logfile -
-        --error-logfile -
-        --log-level info
-        --bind 0.0.0.0:8000
-        dbre_BE.wsgi:application
-      "
+      poetry run gunicorn
+      --workers 3
+      --timeout 60
+      --bind 0.0.0.0:8000
+      dbre_BE.wsgi:application
     deploy:
       resources:
         limits:
@@ -67,10 +58,11 @@ services:
       - PYTHONPATH=/app:/app/dbre_BE
       - DJANGO_ENV=prod
     healthcheck:
-      test: [ "CMD", "poetry", "run", "python", "manage.py", "check" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -135,7 +127,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     depends_on:
       - prometheus
     networks:
