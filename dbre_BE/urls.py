@@ -28,7 +28,7 @@ from reviews.views import ReviewCreateView, ReviewDetailView
 from subscription.views import SubscriptionView, SusHistoryView
 from term.urls import term_patterns
 from user.urls import user_patterns
-from user.views import GoogleCallbackView, GoogleLoginView
+from user.views.public_views import GoogleCallbackView, GoogleLoginView
 
 
 # Payment 관련 URL 패턴
