@@ -40,14 +40,6 @@ services:
       --timeout 60
       --bind 0.0.0.0:8000
       dbre_BE.wsgi:application
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 1G
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -58,7 +50,7 @@ services:
       - PYTHONPATH=/app:/app/dbre_BE
       - DJANGO_ENV=prod
     healthcheck:
-      test: ["CMD", "poetry", "run", "python", "manage.py", "check"]
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -100,10 +92,6 @@ services:
     volumes:
       - ./redis/redis.conf:/usr/local/etc/redis/redis.conf
       - redis_data:/data
-    deploy:
-      resources:
-        limits:
-          memory: 1G
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

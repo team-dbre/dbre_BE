@@ -14,7 +14,7 @@ ENV PYTHONUNBUFFERED=1 \
 
 # 필수 의존성 설치
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq-dev gcc && \
+    apt-get install -y --no-install-recommends libpq-dev gcc curl && \
     rm -rf /var/lib/apt/lists/* && \
     pip install "poetry==$POETRY_VERSION"
 

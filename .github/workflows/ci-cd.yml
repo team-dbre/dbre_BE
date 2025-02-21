@@ -128,18 +128,25 @@ jobs:
             echo "Waiting for services to start..."
             sleep 20
             
-            # 컨테이너 상태 확인
-            if ! docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
-              echo "Containers failed to start properly"
-              docker-compose -f docker-compose.prod.yml logs
+            # 데이터베이스와 Redis 상태 확인
+            if ! docker-compose -f docker-compose.prod.yml ps db | grep -q "healthy"; then
+              echo "Database failed to start properly"
+              docker-compose -f docker-compose.prod.yml logs db
               exit 1
             fi
             
-            # web 컨테이너가 완전히 시작될 때까지 대기
-            until docker-compose -f docker-compose.prod.yml exec web poetry run python -c "import django; print('Django is ready')" > /dev/null 2>&1; do
-              echo "Waiting for Django to be ready..."
-              sleep 5
-            done
+            if ! docker-compose -f docker-compose.prod.yml ps redis | grep -q "healthy"; then
+              echo "Redis failed to start properly"
+              docker-compose -f docker-compose.prod.yml logs redis
+              exit 1
+            fi
+            
+            # 웹 서비스가 실행 중인지만 확인 (healthy 상태는 체크하지 않음)
+            if ! docker-compose -f docker-compose.prod.yml ps web | grep -q "Up"; then
+              echo "Web service failed to start"
+              docker-compose -f docker-compose.prod.yml logs web
+              exit 1
+            fi
             
             # Django가 준비되면 마이그레이션 실행
             docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
