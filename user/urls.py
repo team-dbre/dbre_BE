@@ -1,16 +1,18 @@
 from django.urls import path
 
-from user.views import (
-    EmailCheckView,
-    LoginView,
+from user.views.authenticated_views import (
     LogoutView,
     PasswordChangeView,
+    SavePhoneNumberView,
+    UserProfileView,
+)
+from user.views.public_views import (
+    EmailCheckView,
+    LoginView,
     PasswordResetView,
     RequestVerificationView,
-    SavePhoneNumberView,
     TokenRefreshView,
     UserPhoneCheckView,
-    UserProfileView,
     UserRegistrationView,
     VerifyPhoneView,
 )
