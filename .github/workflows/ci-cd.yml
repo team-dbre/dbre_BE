@@ -135,11 +135,23 @@ jobs:
               exit 1
             fi
             
+            echo "Postgre Ready..."
+            
             if ! docker-compose -f docker-compose.prod.yml ps redis | grep -q "healthy"; then
               echo "Redis failed to start properly"
               docker-compose -f docker-compose.prod.yml logs redis
               exit 1
             fi
+            
+            echo "Redis Ready..."
+            
+            if ! docker-compose -f docker-compose.prod.yml ps web | grep -q "healthy"; then
+              echo "Web service failed to start"
+              docker-compose -f docker-compose.prod.yml logs web
+              exit 1
+            fi
+            
+            echo "Django Ready..."
             
             # Django가 준비되면 마이그레이션 실행
             docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
