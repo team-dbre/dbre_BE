@@ -8,6 +8,7 @@ ALLOWED_HOSTS = [
     "www.api.desub.kr",
     "localhost",
     "223.130.134.137",
+    "web",
 ]
 
 CSRF_COOKIE_HTTPONLY = False

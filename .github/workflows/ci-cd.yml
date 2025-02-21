@@ -126,23 +126,17 @@ jobs:
             docker-compose -f docker-compose.prod.yml up -d --build
             
             # Health check function
-            wait_for_service() {
-              echo "Waiting for $1 service to be healthy..."
-              timeout=300
-              while [ $timeout -gt 0 ]; do
-                if docker-compose -f docker-compose.prod.yml exec -T $1 poetry run python manage.py check > /dev/null 2>&1; then
-                  echo "$1 service is ready!"
-                  return 0
-                fi
-                sleep 5
-                timeout=$((timeout - 5))
-              done
-              echo "$1 service failed to become healthy"
-              return 1
-            }
-
-            # Wait for web service to be healthy
-            wait_for_service web
+            max_attempts=12  # 1분 대기 (5초 * 12)
+            attempt=1
+            until docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py check > /dev/null 2>&1; do
+              if [ $attempt -gt $max_attempts ]; then
+                echo "Health check failed after 1 minute"
+                exit 1
+              fi
+              echo "Waiting for web service... attempt $attempt"
+              sleep 5
+              attempt=$((attempt + 1))
+            done
 
             # Run migrations only after service is healthy
             docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
