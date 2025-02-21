@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.contrib import admin
+from django.http import HttpRequest, HttpResponse
 from django.urls import include, path
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -68,8 +69,13 @@ review_patterns = [
 ]
 
 
+def healthcheck(request: HttpRequest) -> HttpResponse:
+    return HttpResponse("OK")
+
+
 # 메인 URL 패턴
 urlpatterns = [
+    path("", healthcheck, name="healthcheck"),
     path("admin/", admin.site.urls),
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
     path(
