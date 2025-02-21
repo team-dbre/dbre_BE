@@ -125,17 +125,24 @@ jobs:
             docker system prune -f
             docker-compose -f docker-compose.prod.yml up -d --build
             
-            echo "Waiting for services to start..."
-            sleep 20
+            echo "Waiting for database..."
+            sleep 10
             
-            # 컨테이너 상태 확인
-            if ! docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
-              echo "Containers failed to start properly"
-              docker-compose -f docker-compose.prod.yml logs
+            # 데이터베이스 상태 확인
+            if ! docker-compose -f docker-compose.prod.yml ps db | grep -q "healthy"; then
+              echo "Database failed to start properly"
+              docker-compose -f docker-compose.prod.yml logs db
               exit 1
             fi
 
             # Run migrations only after service is healthy
             docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
             
-            echo "Deployment completed successfully"
+            # 모든 서비스 상태 확인
+            if ! docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
+              echo "Containers failed to start properly"
+              docker-compose -f docker-compose.prod.yml logs
+              exit 1
+            fi
+            
+             echo "Deployment completed successfully"
