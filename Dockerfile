@@ -10,19 +10,26 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_VERSION=1.8.5 \
     POETRY_HOME="/opt/poetry" \
     POETRY_VIRTUALENVS_CREATE=false \
-    POETRY_NO_INTERACTION=1
+    POETRY_NO_INTERACTION=1 \
+    PATH="/opt/poetry/bin:$PATH"
 
 # 필수 의존성 설치
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq-dev gcc curl && \
+    apt-get install -y --no-install-recommends \
+    libpq-dev \
+    gcc \
+    curl && \
     rm -rf /var/lib/apt/lists/* && \
-    pip install "poetry==$POETRY_VERSION"
+    curl -sSL https://install.python-poetry.org | python3 -
 
 # 의존성 파일만 먼저 복사
 COPY pyproject.toml poetry.lock ./
 
 # 의존성 설치
-RUN poetry install --no-root --no-interaction --no-ansi
+RUN poetry install --no-dev --no-root
 
 # 나머지 소스코드 복사
 COPY . .
+
+RUN poetry install --no-dev && \
+    poetry show django

@@ -31,7 +31,7 @@ services:
     build: .
     env_file: .env.prod
     volumes:
-      - ./dbre_BE:/app/dbre_BE
+      - .:/app
       - ./staticfiles:/app/staticfiles
     working_dir: /app
     command: >
@@ -39,6 +39,7 @@ services:
       --workers 3
       --timeout 60
       --bind 0.0.0.0:8000
+      --chdir /app
       dbre_BE.wsgi:application
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
@@ -47,7 +48,7 @@ services:
       - POSTGRES_HOST=db
       - REDIS_URL=redis://redis:6379/1
       - DJANGO_SETTINGS_MODULE=dbre_BE.settings.prod
-      - PYTHONPATH=/app:/app/dbre_BE
+      - PYTHONPATH=/app
       - DJANGO_ENV=prod
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/ || exit 1"]
@@ -115,7 +116,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     environment:
-      - GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
+      - GRAFANA_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     depends_on:
       - prometheus
     networks:
