@@ -58,10 +58,11 @@ services:
       - PYTHONPATH=/app:/app/dbre_BE
       - DJANGO_ENV=prod
     healthcheck:
-      test: [ "CMD", "poetry", "run", "python", "manage.py", "check" ]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     depends_on:
       db:
         condition: service_healthy
@@ -126,7 +127,7 @@ services:
     volumes:
       - grafana_data:/var/lib/grafana
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     depends_on:
       - prometheus
     networks:
