@@ -151,9 +151,4 @@ jobs:
               exit 1
             fi
             
-            echo "Django Ready..."
-            
-            # Django가 준비되면 마이그레이션 실행
-            docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
-            
             echo "Deployment completed successfully"
