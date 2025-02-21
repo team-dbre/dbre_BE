@@ -36,9 +36,8 @@ services:
     working_dir: /app
     command: >
       bash -c "
-        source $(poetry env info --path)/bin/activate &&
         python manage.py migrate --noinput &&
-        gunicorn --workers 3 --timeout 60 --bind 0.0.0.0:8000 dbre_BE.wsgi:application
+        gunicorn --workers 3 --timeout 60 --bind 0.0.0.0:8000 --chdir /app dbre_BE.wsgi:application
       "
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
