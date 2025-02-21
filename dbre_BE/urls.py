@@ -70,10 +70,6 @@ review_patterns = [
 ]
 
 
-def health_check(request: HttpRequest) -> HttpResponse:
-    return HttpResponse("ok")
-
-
 # 메인 URL 패턴
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -93,7 +89,6 @@ urlpatterns = [
     path("api/admin/", include((admin_patterns, "admin_api"))),
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
-    path("health/", health_check, name="health_check"),
 ]
 
 

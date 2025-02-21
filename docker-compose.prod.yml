@@ -58,11 +58,11 @@ services:
       - PYTHONPATH=/app:/app/dbre_BE
       - DJANGO_ENV=prod
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      test: ["CMD", "poetry", "run", "python", "manage.py", "check"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 30s
+      start_period: 20s
     depends_on:
       db:
         condition: service_healthy
