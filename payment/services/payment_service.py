@@ -1,7 +1,7 @@
 import logging
 import uuid
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any, Dict
 
@@ -179,7 +179,7 @@ class SubscriptionPaymentService:
                         currency="KRW",
                         customer=customer_info,
                     ),
-                    time_to_pay=next_billing_date.isoformat(),
+                    time_to_pay=get_time_to_pay(),
                 )
             )
             logger.info(f" [PortOne API] 결제 예약 성공: {schedule_response.__dict__}")
@@ -275,7 +275,7 @@ class RefundService:
         """남은 일수를 계산하여 환불 금액 산정"""
         plan_price = self.subscription.plan.price  # 1개월 구독 요금
         start_date = self.subscription.start_date
-        end_date = self.subscription.end_date or (start_date + timedelta(days=30))
+        end_date = self.subscription.end_date or (start_date + relativedelta(months=1))
         total_days = (end_date - start_date).days  # 총 사용 가능 일수
         used_days = (now() - start_date).days  # 사용한 일수
         remaining_days = max(total_days - used_days, 0)  # 남은 일수
@@ -400,7 +400,8 @@ class RefundService:
         # return {"success": False, "message": "Unexpected error in cancel_billing_key"}
 
     def process_refund(self) -> Dict[str, Any]:
-        """환불 요청 처리 및 빌링 해지"""
+        """환불 요청 처리 - 환불은 관리자 승인 후 진행"""
+
         try:
             requested_plan = self.subscription.plan
             logger.info(
@@ -415,83 +416,40 @@ class RefundService:
             if not payment:
                 raise ValueError("환불할 결제 정보를 찾을 수 없습니다.")
 
-            # 요청된 플랜과 결제된 플랜이 일치하는지 확인
-            if payment.subs.plan.id != requested_plan.id:
-                logger.error(
-                    f" 요청된 플랜({requested_plan.id})과 결제된 플랜({payment.subs.plan.id})가 다릅니다"
-                )
-                raise ValueError("취소 요청한 구독 플랜과 일치하지 않는 결제건입니다")
+            # 구독 상태를 'refund_pending'으로 변경
+            self.subscription.auto_renew = False  # 자동 갱신 중단
+            # self.subscription.billing_key = None  # 빌링 키 제거
+            # self.subscription.end_date = now()  # 종료일 설정
+            self.subscription.save(update_fields=["auto_renew"])
+            self.subscription.user.sub_status = "refund_pending"  # 환불 대기 상태 변경
+            self.subscription.user.save(update_fields=["sub_status"])
 
-            # 환불 금액 계산
-            refund_amount = self.calculate_refund_amount(payment)
-            if refund_amount <= 0:
-                raise ValueError("이미 사용한 일수가 많아 환불할 금액이 없습니다.")
+            SubHistories.objects.create(
+                sub=self.subscription,
+                user=self.user,
+                plan=self.subscription.plan,
+                cancelled_reason=self.cancel_reason,
+                other_reason=self.other_reason,
+                change_date=now(),
+                status="refund_pending",
+            )
 
-            refund_response = self.request_refund(payment, refund_amount)
+            # 포트원 예약 결제 취소
+            billing_cancelled = self.cancel_billing_key()
+            if not billing_cancelled.get("success", False):
+                return {"message": "구독 취소 완료, 예약 결제 취소 실패"}
 
-            # 환불 성공 후 빌링 키 삭제 및 구독 비활성화
-            if refund_response["success"]:
-                self.subscription.auto_renew = False
-                self.subscription.billing_key = None
-                self.subscription.end_date = now()
-                self.subscription.remaining_bill_date = None
-                self.subscription.next_bill_date = None
-                self.subscription.save(
-                    update_fields=[
-                        "auto_renew",
-                        "billing_key",
-                        "end_date",
-                        "remaining_bill_date",
-                        "next_bill_date",
-                    ]
-                )
-
-                self.subscription.user.sub_status = "cancelled"
-                self.subscription.user.save(update_fields=["sub_status"])
-
-                SubHistories.objects.create(
-                    sub=self.subscription,
-                    user=self.user,
-                    plan=self.subscription.plan,
-                    cancelled_reason=self.cancel_reason,
-                    other_reason=self.other_reason,
-                    change_date=now(),
-                    status="cancel",
-                )
-                logger.info(
-                    f" 구독 히스토리 생성 완료: {self.subscription.user.id}, {self.subscription.plan.plan_name}"
-                )
-
-                billing_cancelled = self.cancel_billing_key()
-                if not billing_cancelled.get("success", False):
-                    logger.warning(
-                        "환불은 성공했지만, 예약된 결제 취소에 실패했습니다."
-                    )
-                    return {
-                        "message": "환불 성공, 하지만 예약된 결제 취소에 실패했습니다.",
-                        "refund_amount": refund_amount,
-                    }
-
-                payment.status = "REFUNDED"
-                payment.refund_amount = Decimal(refund_amount)
-                payment.save(update_fields=["status", "refund_amount"])
-
-                return {
-                    "message": "환불 성공",
-                    "refund_amount": refund_amount,
-                    "cancelled_reason": self.cancel_reason,
-                    "other_reason": self.other_reason,
-                }
+            return {
+                "message": "구독 취소 완료, 환불 대기 상태로 변경됨",
+            }
 
         except ValueError as e:
-            logger.error(f"환불 실패: {str(e)}", exc_info=True)
+            logger.error(f"구독 취소 실패: {str(e)}", exc_info=True)
             return {"error": str(e)}
 
         except Exception as e:
             logger.error(f"예상치 못한 오류 발생: {str(e)}", exc_info=True)
             return {"error": "예상치 못한 오류가 발생했습니다. 관리자에게 문의하세요."}
-        logger.warning(" 예상치 못한 실행 경로 발견: process_refund에서 반환되지 않음")
-        return {"error": "알 수 없는 오류가 발생했습니다. 관리자에게 문의하세요."}
 
 
 class SubscriptionService:
@@ -625,3 +583,9 @@ class SubscriptionService:
         except Exception as e:
             logger.error(f" 구독 재개 실패: {e}")
             return {"error": "구독 재개 중 오류 발생"}
+
+
+def get_time_to_pay() -> str:
+    kst_offset = timedelta(hours=9)
+    now_kst = datetime.now(timezone.utc) + kst_offset
+    return now_kst.replace(microsecond=0).isoformat()
