@@ -303,3 +303,8 @@ class AdminRefundSerializer(serializers.Serializer):
                 }
             )
         return data
+
+
+class AdminCancelReasonSerializer(serializers.Serializer):
+    cancelled_reason = serializers.CharField()
+    count = serializers.IntegerField()

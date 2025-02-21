@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from admin_api.serializers import (
+    AdminCancelReasonSerializer,
     AdminRefundSerializer,
     SubsCancelSerializer,
     SubscriptionHistorySerializer,
@@ -338,3 +339,20 @@ class AdminRefundView(APIView):
         except Exception as e:
             logger.error(f"관리자 환불 승인 중 오류 발생: {e}")
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class AdminCancelReasonView(APIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminCancelReasonSerializer
+
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        """구독 취소 사유 카운트 조회"""
+        cancel_count = (
+            SubHistories.objects.filter(status="refund_pending")
+            .values("cancelled_reason")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+
+        serializer = AdminCancelReasonSerializer(cancel_count, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
