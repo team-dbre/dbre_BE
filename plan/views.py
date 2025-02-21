@@ -1,5 +1,6 @@
 from typing import List
 
+from django.db.models import Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -105,6 +106,7 @@ class PlanActivateView(APIView):
     def post(self, request: PlanSerializer, plan_id: int) -> Response:
         """비활성화된 플랜 활성화"""
         plan = get_object_or_404(Plans, id=plan_id)
+        Plans.objects.filter(~Q(id=plan_id), is_active=True).update(is_active=False)
         plan.is_active = True
         plan.save(update_fields=["is_active"])
         return Response(
