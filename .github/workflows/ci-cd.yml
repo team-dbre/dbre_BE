@@ -104,7 +104,7 @@ jobs:
         poetry run python manage.py collectstatic --noinput
 
   deploy:
-    needs: [test]
+    needs: [ test ]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
 
@@ -125,24 +125,23 @@ jobs:
             docker system prune -f
             docker-compose -f docker-compose.prod.yml up -d --build
             
-            echo "Waiting for database..."
-            sleep 10
+            echo "Waiting for services to start..."
+            sleep 20
             
-            # 데이터베이스 상태 확인
-            if ! docker-compose -f docker-compose.prod.yml ps db | grep -q "healthy"; then
-              echo "Database failed to start properly"
-              docker-compose -f docker-compose.prod.yml logs db
-              exit 1
-            fi
-
-            # Run migrations only after service is healthy
-            docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
-            
-            # 모든 서비스 상태 확인
+            # 컨테이너 상태 확인
             if ! docker-compose -f docker-compose.prod.yml ps | grep -q "Up"; then
               echo "Containers failed to start properly"
               docker-compose -f docker-compose.prod.yml logs
               exit 1
             fi
             
-             echo "Deployment completed successfully"
+            # web 컨테이너가 완전히 시작될 때까지 대기
+            until docker-compose -f docker-compose.prod.yml exec web poetry run python -c "import django; print('Django is ready')" > /dev/null 2>&1; do
+              echo "Waiting for Django to be ready..."
+              sleep 5
+            done
+            
+            # Django가 준비되면 마이그레이션 실행
+            docker-compose -f docker-compose.prod.yml exec -T web poetry run python manage.py migrate --noinput
+            
+            echo "Deployment completed successfully"
