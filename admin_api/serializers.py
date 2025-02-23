@@ -1,3 +1,5 @@
+import decimal
+
 from datetime import timedelta
 from typing import Union
 
@@ -272,10 +274,14 @@ class AdminRefundSerializer(serializers.Serializer):
             raise serializers.ValidationError("해당 구독이 존재하지 않습니다.")
         return value
 
-    def validate_refund_amount(self, data: dict) -> dict:
-        """ " 환불 금액이 결제 금액 초과하지 않도로 검증"""
-        subscription_id = data["subscription_id"]
-        refund_amount = data["refund_amount"]
+    def validate_refund_amount(self, refund_amount: decimal.Decimal) -> decimal.Decimal:
+        """환불 금액이 결제 금액을 초과하지 않도록 검증"""
+        subscription_id = self.initial_data.get("subscription_id")
+
+        if not subscription_id:
+            raise serializers.ValidationError(
+                {"subscription_id": "구독 ID가 필요합니다."}
+            )
 
         try:
             subscription = Subs.objects.get(id=subscription_id)
@@ -295,15 +301,16 @@ class AdminRefundSerializer(serializers.Serializer):
                 {"refund_amount": "결제 내역이 없습니다. 환불할 수 없습니다."}
             )
 
-        total_paid_amount = payment.amount
+        total_paid_amount = payment.amount  # 사용자가 결제한 금액
 
-        if total_paid_amount < refund_amount:
+        if refund_amount > total_paid_amount:
             raise serializers.ValidationError(
                 {
                     "refund_amount": f"환불 금액은 결제 금액({total_paid_amount})을 초과할 수 없습니다."
                 }
             )
-        return data
+
+        return refund_amount
 
 
 class AdminCancelReasonSerializer(serializers.Serializer):
