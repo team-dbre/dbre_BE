@@ -3,6 +3,7 @@ from typing import Any, cast
 
 from django.conf import settings
 from django.core.cache import cache
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
 from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
@@ -16,10 +17,13 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from admin_api.models import AdminLoginLog
 from admin_api.serializers import (
     AdminLoginSerializer,
+    AdminTallyCompleteSerializer,
+    AdminTallySerializer,
     AdminUserSerializer,
     DashboardSerializer,
 )
 from subscription.models import SubHistories, Subs
+from tally.models import Tally
 from user.utils import measure_time
 
 
@@ -159,3 +163,37 @@ class AdminLoginView(TokenObtainPairView):
             return Response(
                 {"error": error_message}, status=status.HTTP_400_BAD_REQUEST
             )
+
+
+@extend_schema(summary="admin 작업 요청 관리", tags=["admin"])
+class AdminTallyView(APIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminTallySerializer
+
+    def get(self, request: Request) -> Response:
+        """작업 요청 관리"""
+        tally = Tally.objects.select_related("user").all()
+        serializer = AdminTallySerializer(tally, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminTallyCompleteView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        summary="작업 완료 처리",
+        tags=["admin"],
+        request=AdminTallyCompleteSerializer,
+        responses={200: OpenApiResponse()},
+    )
+    def post(self, request: Request) -> Response:
+        """작용 완료 처리"""
+        serializer = AdminTallyCompleteSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        tally_id = serializer.validated_data["tally_id"]
+        tally = get_object_or_404(Tally, id=tally_id)
+        tally.complete = True
+        tally.save(update_fields=["complete"])
+        return Response({"complete": True}, status=status.HTTP_200_OK)
