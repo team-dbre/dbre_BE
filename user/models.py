@@ -56,6 +56,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
             ("cancelled", "Cancelled"),
             ("paused", "Paused"),
             ("none", "None"),
+            ("refund_pending", "환불 대기"),
         ],
         default="none",
     )

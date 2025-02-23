@@ -42,6 +42,8 @@ NCP_ENDPOINT_URL = "https://kr.object.ncloudstorage.com"
 NCP_BUCKET_NAME = os.environ.get("NCP_BUCKET_NAME")
 NCP_BUCKET_URL = f"https://{NCP_BUCKET_NAME}.kr.object.ncloudstorage.com"
 
+TALLY_SIGNING_SECRET = os.getenv("TALLY_SIGNING_SECRET")
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -62,6 +64,7 @@ INSTALLED_APPS = [
     "plan",
     "allauth",
     "reviews",
+    "tally",
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
@@ -131,7 +134,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = "ko-kr"
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
-USE_TZ = True
+USE_TZ = False
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

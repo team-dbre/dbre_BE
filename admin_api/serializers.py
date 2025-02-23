@@ -1,11 +1,19 @@
+import decimal
+
+from datetime import timedelta
 from typing import Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from django.utils.timezone import now
+from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from payment.models import Pays
+from payment.services.payment_service import RefundService
 from subscription.models import SubHistories, Subs
+from tally.models import Tally
 from user.models import CustomUser
 
 
@@ -150,3 +158,188 @@ class AdminLoginSerializer(TokenObtainPairSerializer):
             "refresh_token": data["refresh"],
             "is_superuser": self.user.is_superuser,
         }
+
+
+class SubsCancelSerializer(TokenObtainPairSerializer):
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    user_phone = serializers.CharField(source="user.phone", read_only=True)
+    cancelled_date = serializers.SerializerMethodField()
+    cancelled_reason = serializers.SerializerMethodField()
+    refund_date = serializers.SerializerMethodField()
+    refund_status = serializers.SerializerMethodField()
+    refund_amount = serializers.SerializerMethodField()
+    expected_refund_amount = serializers.SerializerMethodField()
+
+    class Meta:
+        model = SubHistories
+        fields = [
+            "user_name",
+            "user_email",
+            "user_phone",
+            "cancelled_date",
+            "cancelled_reason",
+            "refund_date",
+            "refund_amount",
+            "get_expected_refund_amount",
+        ]
+
+    def get_cancelled_date(self, obj: SubHistories) -> str | None:
+        """구독 취소 일자(환불 일자랑 다름)"""
+        cancelled_data = SubHistories.objects.filter(
+            sub=obj.sub, status="refund_pending"
+        ).latest("change_date")
+
+        return (
+            cancelled_data.change_date.strftime("%Y-%m-%d") if cancelled_data else None
+        )
+
+    def get_cancelled_reason(self, obj: SubHistories) -> str | None:
+        """취소 사유"""
+
+        reason = obj.cancelled_reason if obj.cancelled_reason else "UnKnown"
+        return (
+            f"기타 사유: {obj.other_reason}"
+            if reason == "other" and obj.other_reason
+            else reason
+        )
+
+    def get_refund_date(self, obj: SubHistories) -> str | None:
+        """환불 일자"""
+        if obj.status == "refund_pending":
+            return None
+
+        refund = Pays.objects.filter(subs=obj.sub, status="REFUNDED").latest(
+            "refund_at"
+        )
+        return refund.paid_at.strftime("%Y-%m-%d") if refund else None
+
+    def get_refund_status(self, obj: SubHistories) -> str | None:
+        """sub_status 상태"""
+        if obj.status in ["cancelled", "refund_pending"]:
+            return obj.status
+        return None
+
+    def get_refund_amount(self, obj: SubHistories) -> str | None:
+        """환불 금액"""
+        if obj.status == "refund_pending":
+            return "0"
+
+        refund = Pays.objects.filter(subs=obj.sub, status="REFUNDED").latest(
+            "refund_at"
+        )
+        return str(refund.refund_amount) if refund else "0"
+
+    def get_expected_refund_amount(self, obj: SubHistories) -> str:
+        """환불 예정 금액"""
+        subscription = obj.sub
+        payment = (
+            Pays.objects.filter(user=subscription.user, subs=subscription)
+            .order_by("-id")
+            .first()
+        )
+
+        if not payment:
+            return "0"
+
+        refund_service = RefundService(
+            user=subscription.user,
+            subscription=subscription,
+            cancel_reason="환불 예정 금액 계산",
+            other_reason="",
+        )
+
+        refund_amount = refund_service.calculate_refund_amount(payment)
+
+        return str(refund_amount)
+
+
+class AdminRefundSerializer(serializers.Serializer):
+    """관리자가 환불 승인 요청 시 직접 입력한 환불 금액을 검증"""
+
+    subscription_id = serializers.IntegerField(help_text="환불할 구독 ID")
+    refund_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, help_text="관리자가 입력한 환불 금액"
+    )
+
+    def validate_subscription_id(self, value: int) -> int:
+        """구독 ID 검증 (사용자의 sub_status가 refund_pending인지 확인)"""
+        try:
+            subscription = Subs.objects.get(id=value)
+            if subscription.user.sub_status != "refund_pending":
+                raise serializers.ValidationError(
+                    "해당 구독의 사용자가 환불 대기 상태가 아닙니다."
+                )
+        except Subs.DoesNotExist:
+            raise serializers.ValidationError("해당 구독이 존재하지 않습니다.")
+        return value
+
+    def validate_refund_amount(self, refund_amount: decimal.Decimal) -> decimal.Decimal:
+        """환불 금액이 결제 금액을 초과하지 않도록 검증"""
+        subscription_id = self.initial_data.get("subscription_id")
+
+        if not subscription_id:
+            raise serializers.ValidationError(
+                {"subscription_id": "구독 ID가 필요합니다."}
+            )
+
+        try:
+            subscription = Subs.objects.get(id=subscription_id)
+        except Subs.DoesNotExist:
+            raise serializers.ValidationError(
+                {"subscription_id": "해당 구독이 존재하지 않습니다."}
+            )
+
+        payment = (
+            Pays.objects.filter(subs=subscription, status="PAID")
+            .order_by("-paid_at")
+            .first()
+        )
+
+        if not payment:
+            raise serializers.ValidationError(
+                {"refund_amount": "결제 내역이 없습니다. 환불할 수 없습니다."}
+            )
+
+        total_paid_amount = payment.amount  # 사용자가 결제한 금액
+
+        if refund_amount > total_paid_amount:
+            raise serializers.ValidationError(
+                {
+                    "refund_amount": f"환불 금액은 결제 금액({total_paid_amount})을 초과할 수 없습니다."
+                }
+            )
+
+        return refund_amount
+
+
+class AdminCancelReasonSerializer(serializers.Serializer):
+    cancelled_reason = serializers.CharField()
+    count = serializers.IntegerField()
+
+
+class AdminTallySerializer(serializers.Serializer):
+
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    user_phone = serializers.CharField(source="user.phone", read_only=True)
+    submitted_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    form_name = serializers.CharField(read_only=True)
+    form_data = serializers.JSONField(read_only=True)
+    complete = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Tally
+        fields = [
+            "submitted_at",
+            "user_name",
+            "user_email",
+            "user_phone",
+            "complete",
+            "form_name",
+            "form_data",
+        ]
+
+
+class AdminTallyCompleteSerializer(serializers.Serializer):
+    tally_id = serializers.IntegerField()
