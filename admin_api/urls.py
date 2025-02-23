@@ -1,7 +1,13 @@
 # Admin 관련 URL 패턴
 from django.urls import path
 
-from admin_api.views.admin_views import AdminLoginView, AdminUserView, DashboardView
+from admin_api.views.admin_views import (
+    AdminLoginView,
+    AdminTallyCompleteView,
+    AdminTallyView,
+    AdminUserView,
+    DashboardView,
+)
 from admin_api.views.subs_views import (
     AdminCancelReasonView,
     AdminRefundPendingListView,
@@ -32,4 +38,6 @@ admin_patterns = [
         AdminCancelReasonView.as_view(),
         name="구독 취소 사유 count",
     ),
+    path("tally/", AdminTallyView.as_view(), name="탈리"),
+    path("tally/complete/", AdminTallyCompleteView.as_view(), name="탈리 완료 처리"),
 ]

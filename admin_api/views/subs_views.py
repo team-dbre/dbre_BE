@@ -341,6 +341,7 @@ class AdminRefundView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
+@extend_schema(summary="취소 사유 카운트", tags=["admin"])
 class AdminCancelReasonView(APIView):
     permission_classes = [IsAdminUser]
     serializer_class = AdminCancelReasonSerializer

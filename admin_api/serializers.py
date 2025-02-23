@@ -11,6 +11,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from payment.models import Pays
 from payment.services.payment_service import RefundService
 from subscription.models import SubHistories, Subs
+from tally.models import Tally
 from user.models import CustomUser
 
 
@@ -308,3 +309,30 @@ class AdminRefundSerializer(serializers.Serializer):
 class AdminCancelReasonSerializer(serializers.Serializer):
     cancelled_reason = serializers.CharField()
     count = serializers.IntegerField()
+
+
+class AdminTallySerializer(serializers.Serializer):
+
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    user_phone = serializers.CharField(source="user.phone", read_only=True)
+    submitted_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
+    form_name = serializers.CharField(read_only=True)
+    form_data = serializers.JSONField(read_only=True)
+    complete = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = Tally
+        fields = [
+            "submitted_at",
+            "user_name",
+            "user_email",
+            "user_phone",
+            "complete",
+            "form_name",
+            "form_data",
+        ]
+
+
+class AdminTallyCompleteSerializer(serializers.Serializer):
+    tally_id = serializers.IntegerField()
