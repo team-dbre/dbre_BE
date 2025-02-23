@@ -34,9 +34,27 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 
 class DashboardSerializer(serializers.Serializer):
+    # 작업 요청 현황
+    new_request_today = serializers.IntegerField()
+    request_incomplete = serializers.IntegerField()
+    request_complete = serializers.IntegerField()
+    # 온라인 미팅 현황
+    # 구독 현황
     total_subscriptions = serializers.IntegerField(help_text="전체 구독")
     new_subscriptions_today = serializers.IntegerField(help_text="신규 구독")
     paused_subscriptions = serializers.IntegerField(help_text="오늘 구독 일시정지")
+    # 구독 취소 현황
+    subs_cancel_all = serializers.IntegerField()
+    subs_cancel_today = serializers.IntegerField()
+    # 리뷰 현황
+    all_reviews = serializers.IntegerField()
+    new_reviews = serializers.IntegerField()
+    # 고객 현황
+
+    # 매출 현황
+    monthly_sales = serializers.IntegerField()
+    monthly_refunds = serializers.IntegerField()
+    monthly_total_sales = serializers.IntegerField()
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
