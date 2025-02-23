@@ -220,9 +220,28 @@ class AdminTallyView(APIView):
 
     def get(self, request: Request) -> Response:
         """작업 요청 관리"""
+        # 오늘 신규 요청
+        new_request_today = Tally.objects.filter(
+            submitted_at__date=now().date()
+        ).count()
+        # 미완료
+        request_incomplete = Tally.objects.filter(complete=False).count()
+        # 완료
+        request_complete = Tally.objects.filter(complete=True).count()
+
         tally = Tally.objects.select_related("user").all()
         serializer = AdminTallySerializer(tally, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "dashboard": {
+                    "new_request_today": new_request_today,  # 오늘 신규 요청
+                    "request_incomplete": request_incomplete,  # 미완료
+                    "request_complete": request_complete,  # 완료
+                },
+                "requests": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminTallyCompleteView(APIView):
