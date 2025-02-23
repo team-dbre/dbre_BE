@@ -156,7 +156,7 @@ class SavePhoneNumberView(APIView):
         },
     ),
 )
-class UserProfileView(APIView):
+class UserView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = (MultiPartParser, FormParser)
 
