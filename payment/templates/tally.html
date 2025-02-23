@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<form id="custom-form">
+    <input type="text" name="question1" placeholder="답변을 입력하세요">
+    <button type="submit">제출하기</button>
+</form>
+
+<script>
+document.getElementById("custom-form").addEventListener("submit", function(event) {
+    event.preventDefault();
+
+    const formData = {
+        user_id: "USER_ID",
+        question1: document.querySelector('[name="question1"]').value
+    };
+
+    fetch("/api/save-form-response/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => console.log("폼 저장 완료:", data))
+    .catch(error => console.error("오류 발생:", error));
+});
+</script>
+
+</body>
+</html>

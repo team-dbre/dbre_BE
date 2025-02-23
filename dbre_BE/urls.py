@@ -26,6 +26,7 @@ from plan.views import (
 )
 from reviews.views import ReviewCreateView, ReviewDetailView
 from subscription.views import SubscriptionView, SusHistoryView
+from tally.views import TallyWebhookAPIView
 from term.urls import term_patterns
 from user.urls import user_patterns
 from user.views.public_views import GoogleCallbackView, GoogleLoginView
@@ -93,6 +94,7 @@ urlpatterns = [
     path("api/admin/", include((admin_patterns, "admin_api"))),
     path("auth/google/login/", GoogleLoginView.as_view(), name="google_login"),
     path("auth/google/callback/", GoogleCallbackView.as_view(), name="google_callback"),
+    path("api/tally-webhook/", TallyWebhookAPIView.as_view(), name="tally_webhook"),
 ]
 
 
