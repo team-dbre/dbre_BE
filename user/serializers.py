@@ -365,3 +365,7 @@ class UserUpdateResponseSerializer(serializers.Serializer):
     message = serializers.CharField()
     name = serializers.CharField()
     img_url = serializers.URLField(allow_null=True)
+
+
+class WithdrawalReasonSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=True, allow_blank=False)

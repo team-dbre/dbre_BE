@@ -4,7 +4,7 @@ from user.views.authenticated_views import (
     LogoutView,
     PasswordChangeView,
     SavePhoneNumberView,
-    UserProfileView,
+    UserView,
 )
 from user.views.public_views import (
     EmailCheckView,
@@ -31,7 +31,7 @@ user_patterns = [
     ),
     path("verify-phone/", VerifyPhoneView.as_view(), name="verify_phone"),
     path("g-phone/", SavePhoneNumberView.as_view(), name="g-phone"),
-    path("", UserProfileView.as_view(), name="user-profile"),
+    path("", UserView.as_view(), name="user-profile"),
     path("refresh_token/", TokenRefreshView.as_view(), name="refresh-token"),
     path("find-email/", UserPhoneCheckView.as_view(), name="find-email"),
     path("password/reset/", PasswordResetView.as_view(), name="password_reset"),

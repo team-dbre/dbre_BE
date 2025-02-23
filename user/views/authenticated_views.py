@@ -7,10 +7,17 @@ from botocore.exceptions import ClientError
 from django.conf import settings
 from django.core.cache import cache
 from django.core.files.uploadedfile import UploadedFile
-from drf_spectacular.utils import OpenApiResponse, extend_schema, extend_schema_view
+from django.utils import timezone
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import serializers, status
 from rest_framework.generics import GenericAPIView
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -18,7 +25,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from user.models import Agreements, CustomUser
+from user.models import Agreements, CustomUser, WithdrawalReason
 from user.serializers import (
     LogoutSerializer,
     PasswordChangeResponseSerializer,
@@ -28,6 +35,7 @@ from user.serializers import (
     UserProfileSerializer,
     UserUpdateResponseSerializer,
     UserUpdateSerializer,
+    WithdrawalReasonSerializer,
 )
 from user.utils import normalize_phone_number
 
@@ -132,8 +140,11 @@ class SavePhoneNumberView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema_view(
-    get=extend_schema(
+class UserView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser, JSONParser)
+
+    @extend_schema(
         tags=["user"],
         summary="내 정보 조회",
         description="로그인된 사용자의 프로필 정보를 조회합니다.",
@@ -143,23 +154,7 @@ class SavePhoneNumberView(APIView):
             ),
             401: OpenApiResponse(description="인증되지 않은 사용자"),
         },
-    ),
-    patch=extend_schema(
-        tags=["user"],
-        summary="사용자 정보 수정",
-        description="사용자의 이름과 프로필 이미지를 수정합니다.",
-        request=UserUpdateSerializer,
-        responses={
-            200: UserUpdateResponseSerializer,
-            400: OpenApiResponse(description="잘못된 요청"),
-            401: OpenApiResponse(description="인증 실패"),
-        },
-    ),
-)
-class UserProfileView(APIView):
-    permission_classes = [IsAuthenticated]
-    parser_classes = (MultiPartParser, FormParser)
-
+    )
     def get(self, request: Request) -> Response:
         user = request.user
         serializer = UserProfileSerializer(user)
@@ -214,6 +209,17 @@ class UserProfileView(APIView):
         except ClientError as e:
             logger.error(f"NCP delete error: {str(e)}")
 
+    @extend_schema(
+        tags=["user"],
+        summary="사용자 정보 수정",
+        description="사용자의 이름과 프로필 이미지를 수정합니다.",
+        request=UserUpdateSerializer,
+        responses={
+            200: UserUpdateResponseSerializer,
+            400: OpenApiResponse(description="잘못된 요청"),
+            401: OpenApiResponse(description="인증 실패"),
+        },
+    )
     def patch(self, request: Request) -> Response:
         serializer = UserUpdateSerializer(data=request.data)
         if not serializer.is_valid():
@@ -252,7 +258,50 @@ class UserProfileView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-    # def delete(self, request: Request) -> Response:
+    @extend_schema(
+        tags=["user"],
+        summary="회원 탈퇴 요청",
+        description="회원 탈퇴를 요청합니다. (soft delete)",
+        request=WithdrawalReasonSerializer,
+        responses={
+            200: {"type": "object", "properties": {"message": {"type": "string"}}},
+            400: OpenApiResponse(description="잘못된 요청"),
+            401: OpenApiResponse(description="인증 실패"),
+        },
+    )
+    def post(self, request: Request) -> Response:
+        user = request.user
+
+        # 구독 상태 확인
+        if user.sub_status not in ["cancelled", "none"]:
+            return Response(
+                {
+                    "message": "구독 중인 사용자는 탈퇴할 수 없습니다. 먼저 구독을 취소해주세요."
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 탈퇴 사유 유효성 검사
+        serializer = WithdrawalReasonSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        # 탈퇴 사유 저장
+        reason = serializer.validated_data["reason"]
+        WithdrawalReason.objects.create(user=user, reason=reason)
+
+        # 사용자 비활성화 (soft delete)
+        user.is_active = False
+        user.deleted_at = timezone.now()
+        user.save()
+
+        # 로그아웃 처리 (토큰 무효화)
+        if hasattr(user, "auth_token"):
+            user.auth_token.delete()
+
+        return Response(
+            {"message": "회원 탈퇴가 완료되었습니다."}, status=status.HTTP_200_OK
+        )
 
 
 class PasswordChangeView(APIView):
