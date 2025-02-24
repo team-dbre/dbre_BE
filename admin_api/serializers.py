@@ -464,6 +464,12 @@ class AdminPasswordChangeSerializer(serializers.Serializer):
         return value
 
 
+class StatisticsSerializer(serializers.Serializer):
+    total_users = serializers.IntegerField()
+    new_users_today = serializers.IntegerField()
+    deleted_users_today = serializers.IntegerField()
+
+
 class UserManagementSerializer(serializers.ModelSerializer):
     is_subscribed = serializers.CharField()
     marketing_consent = serializers.CharField()
@@ -487,3 +493,11 @@ class UserManagementSerializer(serializers.ModelSerializer):
             "latest_paid_at",
             "end_date",
         )
+
+
+class UserManagementResponseSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    statistics = StatisticsSerializer()
+    users = UserManagementSerializer(many=True)
