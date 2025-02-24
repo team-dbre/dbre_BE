@@ -52,8 +52,8 @@ class DashboardView(APIView):
         """상담 예약 현황"""
         """구독 현황"""
         # 전체 구독자 수
-        total_subscriptions = Subs.objects.exclude(
-            user__sub_status__in=[None, "cancelled"]
+        total_subscriptions = Subs.objects.filter(
+            user__sub_status__in=["active"]
         ).count()
         # 오늘 일시정지 수
         paused_subscriptions = (
