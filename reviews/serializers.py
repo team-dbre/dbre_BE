@@ -22,9 +22,9 @@ class ReviewSerializer(serializers.ModelSerializer):
 
     def validate(self, data: str) -> str:
         user = self.context["request"].user
-        if user.sub_status != "active":
+        if user.sub_status == "none":
             raise serializers.ValidationError(
-                "구독이 활성화된 사용자만 리뷰 작성이 가능합니다"
+                "구독 이력이 있는 사용자만 리뷰 작성이 가능합니다"
             )
         return data
 
