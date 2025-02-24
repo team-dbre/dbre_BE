@@ -88,7 +88,7 @@ class Agreements(models.Model):
 
 class WithdrawalReason(models.Model):  # 회원 탈퇴 사유
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, null=True)
     reason = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
