@@ -8,6 +8,7 @@ from admin_api.views.admin_views import (
     AdminUserView,
     DashboardView,
 )
+from admin_api.views.pay_views import AdminSalesPayView
 from admin_api.views.subs_views import (
     AdminCancelReasonView,
     AdminRefundPendingListView,
@@ -40,4 +41,5 @@ admin_patterns = [
     ),
     path("tally/", AdminTallyView.as_view(), name="탈리"),
     path("tally/complete/", AdminTallyCompleteView.as_view(), name="탈리 완료 처리"),
+    path("sales/", AdminSalesPayView.as_view(), name="매출 관리"),
 ]
