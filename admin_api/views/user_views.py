@@ -134,7 +134,7 @@ class DeleteUserMangementView(APIView):
 
     @extend_schema(
         tags=["admin"],
-        summary="Admin page 탈퇴 회원 목록",
+        summary="Admin page 탈퇴 요청 회원 목록",
         description="탈퇴 회원 목록 정렬 기준 (deleted_at, name, email, phone, reason)",
         parameters=[
             OpenApiParameter(
