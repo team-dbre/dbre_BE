@@ -276,7 +276,7 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
         elif isinstance(reason, list):
             reason = reason[0] if reason else "UnKnown"
 
-        if reason.lower() == "other" and cancel.other_reason:
+        if reason.lower() == "other" and cancel.other_reason:  # type: ignore
             return f"기타 : {cancel.other_reason}"
         return reason or "UnKnown"
 
