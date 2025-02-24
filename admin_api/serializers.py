@@ -3,6 +3,7 @@ import decimal
 from typing import Union
 
 from django.contrib.auth import get_user_model
+from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -340,3 +341,11 @@ class AdminTallySerializer(serializers.Serializer):
 
 class AdminTallyCompleteSerializer(serializers.Serializer):
     tally_id = serializers.IntegerField()
+
+
+class AdminPasswordChangeSerializer(serializers.Serializer):
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value: str) -> str:
+        validate_password(value)
+        return value

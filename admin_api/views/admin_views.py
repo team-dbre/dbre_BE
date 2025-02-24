@@ -1,8 +1,10 @@
 from datetime import timedelta
 from typing import Any, cast
+from uuid import UUID
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
@@ -17,6 +19,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from admin_api.models import AdminLoginLog
 from admin_api.serializers import (
     AdminLoginSerializer,
+    AdminPasswordChangeSerializer,
     AdminTallyCompleteSerializer,
     AdminTallySerializer,
     AdminUserSerializer,
@@ -24,6 +27,7 @@ from admin_api.serializers import (
 )
 from subscription.models import SubHistories, Subs
 from tally.models import Tally
+from user.models import CustomUser
 from user.utils import measure_time
 
 
@@ -93,6 +97,45 @@ class AdminUserView(APIView):
             return Response(
                 {"message": "관리자 계정이 생성되었습니다.", "email": user.email},
                 status=status.HTTP_201_CREATED,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        tags=["admin"],
+        summary="Change Admin User Password",
+        description="Change the password of an admin user (requires superuser)",
+        request=AdminPasswordChangeSerializer,
+        responses={
+            200: OpenApiResponse(
+                response={"message": str},
+                description="Password changed successfully",
+            ),
+            400: OpenApiResponse(description="Bad request"),
+            403: OpenApiResponse(description="Forbidden"),
+            404: OpenApiResponse(description="User not found"),
+        },
+    )
+    def patch(self, request: Request, user_id: UUID | str) -> Response:
+        if not request.user.is_superuser:
+            raise PermissionDenied(
+                "슈퍼유저만 관리자 계정의 비밀번호를 변경할 수 있습니다."
+            )
+
+        try:
+            user = CustomUser.objects.get(id=user_id, is_staff=True)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"message": "해당 관리자 계정을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        serializer = AdminPasswordChangeSerializer(data=request.data)
+        if serializer.is_valid():
+            user.set_password(serializer.validated_data["new_password"])
+            user.save()
+            return Response(
+                {"message": "관리자 계정의 비밀번호가 변경되었습니다."},
+                status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
