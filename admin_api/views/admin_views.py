@@ -178,6 +178,19 @@ class AdminUserView(APIView):
 class AdminLoginView(TokenObtainPairView):
     serializer_class = AdminLoginSerializer  # type: ignore
 
+    @staticmethod
+    def get_client_ip(request: Request) -> str:
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            ip = str(x_forwarded_for.split(",")[0])
+        else:
+            ip = str(
+                request.META.get("HTTP_X_REAL_IP")
+                or request.META.get("REMOTE_ADDR")
+                or ""
+            )
+        return ip
+
     @extend_schema(
         tags=["admin"],
         summary="Admin Login",
@@ -216,7 +229,7 @@ class AdminLoginView(TokenObtainPairView):
             # 관리자 로그인 로그 기록
             AdminLoginLog.objects.create(
                 user=serializer.user,
-                ip_address=request.META.get("REMOTE_ADDR"),
+                ip_address=self.get_client_ip(request),
                 user_agent=request.META.get("HTTP_USER_AGENT"),
             )
 
