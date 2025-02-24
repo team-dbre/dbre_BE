@@ -1,5 +1,6 @@
 from django.db.models import Q, Sum
 from django.utils.timezone import now
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser
 from rest_framework.request import Request
@@ -10,8 +11,10 @@ from admin_api.serializers import AdminSalesSerializer
 from payment.models import Pays
 
 
+@extend_schema(tags=["admin"])
 class AdminSalesPayView(APIView):
     permission_classes = [IsAdminUser]
+    serializer_class = AdminSalesSerializer
 
     def get(self, request: Request) -> Response:
         """관리자 결제 및 환불 내역 조회 API"""
