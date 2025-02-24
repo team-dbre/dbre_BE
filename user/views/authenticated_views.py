@@ -232,11 +232,11 @@ class UserView(APIView):
             if "name" in serializer.validated_data:
                 user.name = serializer.validated_data["name"]
 
-            if 'image' in serializer.validated_data:
-                if serializer.validated_data['image'] is not None:
+            if "image" in serializer.validated_data:
+                if serializer.validated_data["image"] is not None:
                     # 새 이미지가 제공된 경우에만 업로드 및 업데이트
                     new_img_url = self._upload_to_ncp(
-                        serializer.validated_data['image'], 'profile-images'
+                        serializer.validated_data["image"], "profile-images"
                     )
                     user.img_url = new_img_url
 
