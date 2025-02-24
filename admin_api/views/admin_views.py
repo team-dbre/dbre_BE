@@ -103,36 +103,24 @@ class AdminUserView(APIView):
     @extend_schema(
         tags=["admin"],
         summary="Change Admin User Password",
-        description="Change the password of an admin user (requires superuser)",
+        description="Change the password of the logged-in admin user (requires superuser)",
         request=AdminPasswordChangeSerializer,
         responses={
-            200: OpenApiResponse(
-                response={"message": str},
-                description="Password changed successfully",
-            ),
+            200: OpenApiResponse(description="Password changed successfully"),
             400: OpenApiResponse(description="Bad request"),
             403: OpenApiResponse(description="Forbidden"),
-            404: OpenApiResponse(description="User not found"),
         },
     )
-    def patch(self, request: Request, user_id: UUID | str) -> Response:
-        if not request.user.is_superuser:
+    def patch(self, request: Request) -> Response:
+        if not request.user.is_staff:
             raise PermissionDenied(
-                "슈퍼유저만 관리자 계정의 비밀번호를 변경할 수 있습니다."
-            )
-
-        try:
-            user = CustomUser.objects.get(id=user_id, is_staff=True)
-        except CustomUser.DoesNotExist:
-            return Response(
-                {"message": "해당 관리자 계정을 찾을 수 없습니다."},
-                status=status.HTTP_404_NOT_FOUND,
+                "관리자만 관리자 계정의 비밀번호를 변경할 수 있습니다."
             )
 
         serializer = AdminPasswordChangeSerializer(data=request.data)
         if serializer.is_valid():
-            user.set_password(serializer.validated_data["new_password"])
-            user.save()
+            request.user.set_password(serializer.validated_data["new_password"])
+            request.user.save()
             return Response(
                 {"message": "관리자 계정의 비밀번호가 변경되었습니다."},
                 status=status.HTTP_200_OK,
