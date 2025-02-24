@@ -397,9 +397,7 @@ class AdminSalesSerializer(serializers.ModelSerializer):
     transaction_date = serializers.SerializerMethodField()
     transaction_amount = serializers.SerializerMethodField()
     transaction_type = serializers.SerializerMethodField()
-    user_name = serializers.CharField(source="user.name", read_only=True)
-    user_email = serializers.CharField(source="user.email", read_only=True)
-    user_phone = serializers.CharField(source="user.phone", read_only=True)
+    user = serializers.SerializerMethodField()
 
     class Meta:
         model = Pays
@@ -408,9 +406,7 @@ class AdminSalesSerializer(serializers.ModelSerializer):
             "transaction_date",
             "transaction_amount",
             "transaction_type",
-            "user_name",
-            "user_email",
-            "user_phone",
+            "user",
         ]
 
     def get_transaction_date(self, obj: Pays) -> datetime.date:
@@ -429,6 +425,16 @@ class AdminSalesSerializer(serializers.ModelSerializer):
         if self.context.get("is_refund"):
             return "구독취소"  # 환불이 있는 경우에만 "구독취소"
         return "결제"  # 결제 내역은 항상 "결제"로 표시
+
+    def get_uesr(self, obj: Pays) -> dict:
+        if obj.user:
+            return {
+                "id": obj.user.id,
+                "name": obj.user.name,
+                "email": obj.user.email,
+                "phone": obj.user.phone,
+            }
+        return {"id": None, "name": None, "email": None, "phone": None}
 
 
 class AdminPasswordChangeSerializer(serializers.Serializer):
