@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from admin_api.serializers import (
     AdminCancelReasonSerializer,
+    AdminRefundInfoSerializer,
     AdminRefundSerializer,
     SubsCancelSerializer,
     SubscriptionHistorySerializer,
@@ -151,7 +152,7 @@ class AdminRefundPendingListView(APIView):
         subs_cancel_all = SubHistories.objects.filter(status="refund_pending").count()
         # 오늘 취소
         subs_cancel_today = SubHistories.objects.filter(
-            status="refund_pending", change_date=now().today()
+            status="refund_pending", change_date__date=now().date()
         ).count()
 
         latest_change_date = (
@@ -276,4 +277,28 @@ class AdminCancelReasonView(APIView):
         )
 
         serializer = AdminCancelReasonSerializer(cancel_count, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["admin"], responses=AdminRefundInfoSerializer)
+class AdminRefundInfoView(APIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminRefundInfoSerializer
+
+    def get(
+        self, request: Request, subs_id: int, *args: Any, **kwargs: Any
+    ) -> Response:
+        """환불 승인 전 결제 정보 확인 조회하는 API (환불 팝업)"""
+
+        try:
+            subscription = Subs.objects.get(
+                id=subs_id, user__sub_status="refund_pending"
+            )
+        except Subs.DoesNotExist:
+            return Response(
+                {"error": "해당 구독이 환불 대기 상태가 아닙니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = AdminRefundInfoSerializer(subscription)
         return Response(serializer.data, status=status.HTTP_200_OK)
