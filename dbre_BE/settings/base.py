@@ -238,7 +238,7 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 
 # ✅ 특정 HTTP 메서드만 허용
-CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+CORS_ALLOW_METHODS = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
 
 # ✅ 특정 헤더만 허용
 CORS_ALLOW_HEADERS = ["content-type", "authorization"]
