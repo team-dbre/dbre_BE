@@ -29,6 +29,7 @@ from payment.models import Pays
 from reviews.models import Review
 from subscription.models import SubHistories, Subs
 from tally.models import Tally
+from user.models import CustomUser
 from user.utils import measure_time
 
 
@@ -79,6 +80,16 @@ class DashboardView(APIView):
         all_reviews = Review.objects.all().count()
         new_reviews = Review.objects.filter(created_at__date=now().date()).count()
         """고객 현황"""
+        # 전체 고객 수 (is_staff=False인 경우만)
+        total_customers = CustomUser.objects.filter(is_staff=False).count()
+        # 오늘 가입한 고객 수
+        new_customers_today = CustomUser.objects.filter(
+            is_staff=False, created_at__date=now().date()
+        ).count()
+        # 오늘 탈퇴한 고객 수
+        deleted_customers_today = CustomUser.objects.filter(
+            is_staff=False, deleted_at__date=now().date()
+        ).count()
         """매출 현황"""
         monthly_sales = (
             Pays.objects.filter(paid_at__month=now().date().month).aggregate(
@@ -103,6 +114,9 @@ class DashboardView(APIView):
             "new_subscriptions_today": new_subscriptions_today,  # 오늘 신규 구독
             "subs_cancel_all": subs_cancel_all,  # 구독 전체 취소
             "subs_cancel_today": subs_cancel_today,  # 구독 오늘 취소
+            "total_customers": total_customers,  # 전체 회원 수
+            "new_customers_today": new_customers_today,  # 오늘 가입자 수
+            "deleted_customers_today": deleted_customers_today,  # 오늘 탈퇴 요청 수
             "all_reviews": all_reviews,  # 전체 리뷰
             "new_reviews": new_reviews,  # 오늘 리뷰
             "monthly_sales": monthly_sales,  # 당월 매출
