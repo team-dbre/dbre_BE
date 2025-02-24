@@ -100,7 +100,7 @@ class SubscriptionListView(APIView):
                     "paused_subscriptions": paused_subscriptions,
                     "new_subscriptions_today": new_subscriptions_today,
                 },
-                "subscriptions": serializer.data,
+                "requests": serializer.data,
             },
             status=200,
         )
