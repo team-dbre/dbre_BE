@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from admin_api.serializers import (
     AdminCancelReasonSerializer,
+    AdminRefundInfoSerializer,
     AdminRefundSerializer,
     SubsCancelSerializer,
     SubscriptionHistorySerializer,
@@ -279,13 +280,15 @@ class AdminCancelReasonView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+@extend_schema(tags=["admin"], responses=AdminRefundInfoSerializer)
 class AdminRefundInfoView(APIView):
     permission_classes = [IsAdminUser]
+    serializer_class = AdminRefundInfoSerializer
 
     def get(
         self, request: Request, subs_id: int, *args: Any, **kwargs: Any
     ) -> Response:
-        """환불 승인 전 결제 정보 확인 조회하는 api(환불 팝업)"""
+        """환불 승인 전 결제 정보 확인 조회하는 API (환불 팝업)"""
 
         try:
             subscription = Subs.objects.get(
@@ -297,31 +300,5 @@ class AdminRefundInfoView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        payment = (
-            Pays.objects.filter(
-                user=subscription.user, subs=subscription, status="PAID"
-            )
-            .order_by("-paid_at")
-            .first()
-        )
-        if not payment:
-            return Response(
-                {"error": "결제 정보를 찾을 수 없습니다."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        refund_service = RefundService(
-            user=subscription.user,
-            subscription=subscription,
-            cancel_reason="환불 예정 금액 계산",
-            other_reason="",
-        )
-        refund_amount = refund_service.calculate_refund_amount(payment)
-
-        data = {
-            "user_name": subscription.user.name,
-            "paid_at": payment.paid_at.strftime("%Y/%m/%d %H:%M:%S"),
-            "paid_amount": refund_amount,
-            "refund_amount": refund_amount,
-        }
-        return Response(data, status=status.HTTP_200_OK)
+        serializer = AdminRefundInfoSerializer(subscription)
+        return Response(serializer.data, status=status.HTTP_200_OK)
