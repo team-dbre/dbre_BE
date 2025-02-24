@@ -4,11 +4,8 @@ from uuid import UUID
 
 from django.conf import settings
 from django.core.cache import cache
-
-from django.db.models import Sum
-
 from django.core.exceptions import PermissionDenied
-
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now

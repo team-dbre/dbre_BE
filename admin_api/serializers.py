@@ -361,7 +361,6 @@ class AdminTallyCompleteSerializer(serializers.Serializer):
     tally_id = serializers.IntegerField()
 
 
-
 class AdminSalesSerializer(serializers.ModelSerializer):
     """결제 및 환불 내역 직렬화"""
 
@@ -401,6 +400,7 @@ class AdminSalesSerializer(serializers.ModelSerializer):
             return "구독취소"  # 환불이 있는 경우에만 "구독취소"
         return "결제"  # 결제 내역은 항상 "결제"로 표시
 
+
 class AdminPasswordChangeSerializer(serializers.Serializer):
     new_password = serializers.CharField(write_only=True)
 
@@ -426,4 +426,3 @@ class AdminPasswordChangeSerializer(serializers.Serializer):
             )
 
         return value
-
