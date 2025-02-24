@@ -1,12 +1,9 @@
 import decimal
 
-from datetime import timedelta
 from typing import Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.utils.timezone import now
-from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
