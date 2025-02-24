@@ -526,9 +526,9 @@ class UserManagementSerializer(serializers.ModelSerializer):
 
 
 class UserManagementResponseSerializer(serializers.Serializer):
-    count = serializers.IntegerField()
-    next = serializers.URLField(allow_null=True)
-    previous = serializers.URLField(allow_null=True)
+    # count = serializers.IntegerField()
+    # next = serializers.URLField(allow_null=True)
+    # previous = serializers.URLField(allow_null=True)
     statistics = StatisticsSerializer()
     users = UserManagementSerializer(many=True)
 
