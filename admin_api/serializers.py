@@ -15,6 +15,14 @@ from tally.models import Tally
 from user.models import CustomUser
 
 
+class UserInfoSerializer(serializers.ModelSerializer):
+    """프론트 공통 컴포넌트를 위한 name, email, phone 분리"""
+
+    class Meta:
+        model = CustomUser
+        fields = ("name", "email", "phone")
+
+
 class AdminUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
@@ -494,6 +502,7 @@ class StatisticsSerializer(serializers.Serializer):
 
 
 class UserManagementSerializer(serializers.ModelSerializer):
+    user = UserInfoSerializer(source="*")
     is_subscribed = serializers.CharField()
     marketing_consent = serializers.CharField()
     start_date = serializers.DateTimeField()
@@ -504,9 +513,7 @@ class UserManagementSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = (
             "id",
-            "name",
-            "email",
-            "phone",
+            "user",
             "is_subscribed",
             "sub_status",
             "created_at",
@@ -570,3 +577,12 @@ class AdminRefundInfoSerializer(serializers.Serializer):
         )
         refund_amount = refund_service.calculate_refund_amount(payment)
         return f"{int(refund_amount):,} 원" if refund_amount else "0 원"
+
+
+class DeletedUserSerializer(serializers.ModelSerializer):
+    user = UserInfoSerializer(source="*")
+    reason = serializers.CharField()
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "deleted_at", "user", "reason")

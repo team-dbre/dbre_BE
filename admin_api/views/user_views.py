@@ -10,12 +10,13 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from admin_api.serializers import (
+    DeletedUserSerializer,
     UserManagementResponseSerializer,
     UserManagementSerializer,
 )
 from payment.models import Pays
 from subscription.models import Subs
-from user.models import Agreements, CustomUser
+from user.models import Agreements, CustomUser, WithdrawalReason
 
 
 class CustomPagination(PageNumberPagination):
@@ -125,3 +126,67 @@ class UserManagementView(APIView):
         }
 
         return Response(response_data)
+
+
+class DeleteUserMangementView(APIView):
+    permission_classes = [IsAdminUser]
+    pagination_class = CustomPagination
+
+    @extend_schema(
+        tags=["admin"],
+        summary="Admin page 탈퇴 요청 회원 목록",
+        description="탈퇴 회원 목록 정렬 기준 (deleted_at, name, email, phone, reason)",
+        parameters=[
+            OpenApiParameter(
+                name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
+            ),
+            OpenApiParameter(
+                name="order_direction",
+                description="정렬 순서 (asc 또는 desc)",
+                type=OpenApiTypes.STR,
+            ),
+            OpenApiParameter(
+                name="page", description="페이지 번호", type=OpenApiTypes.INT
+            ),
+            OpenApiParameter(
+                name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
+            ),
+        ],
+        responses={200: DeletedUserSerializer(many=True)},
+    )
+    def get(self, request: Request) -> Response:
+        order_by = request.query_params.get("order_by", "deleted_at")
+        order_direction = request.query_params.get("order_direction", "desc")
+
+        valid_order_fields = {
+            "deleted_at": "deleted_at",
+            "name": "name",
+            "email": "email",
+            "phone": "phone",
+            "reason": "reason",
+        }
+
+        if order_by not in valid_order_fields:
+            order_by = "deleted_at"
+
+        order_prefix = "-" if order_direction == "desc" else ""
+        order_field = f"{order_prefix}{valid_order_fields[order_by]}"
+
+        # Subquery for withdrawal reason
+        reason_subquery = WithdrawalReason.objects.filter(user=OuterRef("pk")).values(
+            "reason"
+        )[:1]
+
+        deleted_users = (
+            CustomUser.objects.filter(is_active=False)
+            .annotate(reason=Subquery(reason_subquery))
+            .values("id", "deleted_at", "name", "email", "phone", "reason")
+            .order_by(order_field)
+        )
+
+        paginator = self.pagination_class()
+        paginated_users = paginator.paginate_queryset(deleted_users, request)
+
+        serializer = DeletedUserSerializer(paginated_users, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
