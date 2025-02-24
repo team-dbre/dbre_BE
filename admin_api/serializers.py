@@ -437,7 +437,7 @@ class AdminSalesSerializer(serializers.ModelSerializer):
             return "구독취소"  # 환불이 있는 경우에만 "구독취소"
         return "결제"  # 결제 내역은 항상 "결제"로 표시
 
-    def get_uesr(self, obj: Pays) -> dict:
+    def get_user(self, obj: Pays) -> dict:
         if obj.user:
             return {
                 "id": obj.user.id,
