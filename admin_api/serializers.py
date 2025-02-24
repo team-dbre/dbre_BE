@@ -56,7 +56,11 @@ class DashboardSerializer(serializers.Serializer):
     all_reviews = serializers.IntegerField()
     new_reviews = serializers.IntegerField()
     # 고객 현황
-
+    total_customers = serializers.IntegerField(help_text="전체 고객 수")
+    new_customers_today = serializers.IntegerField(help_text="오늘 가입한 고객 수")
+    deleted_customers_today = serializers.IntegerField(
+        help_text="오늘 탈퇴 요청한 고객 수"
+    )
     # 매출 현황
     monthly_sales = serializers.IntegerField()
     monthly_refunds = serializers.IntegerField()
