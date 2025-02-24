@@ -74,7 +74,7 @@ class DashboardView(APIView):
         subs_cancel_all = SubHistories.objects.filter(status="refund_pending").count()
         # 오늘 취소
         subs_cancel_today = SubHistories.objects.filter(
-            status="refund_pending", change_date=now().today()
+            status="refund_pending", change_date__date=now().date()
         ).count()
         """리뷰 현황"""
         all_reviews = Review.objects.all().count()

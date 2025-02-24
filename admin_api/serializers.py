@@ -251,10 +251,17 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
     def get_cancelled_reason(self, obj: SubHistories) -> str | None:
         """취소 사유"""
 
-        reason = obj.cancelled_reason if obj.cancelled_reason else "UnKnown"
+        cancel = (
+            SubHistories.objects.filter(sub=obj.sub, status="refund_pending")
+            .order_by("-change_date")
+            .first()
+        )
+        if not cancel:
+            return "UnKnown"
+        reason = cancel.cancelled_reason if cancel.cancelled_reason else "UnKnown"
         return (
-            f"기타 사유: {obj.other_reason}"
-            if reason == "other" and obj.other_reason
+            f"기타 사유: {cancel.other_reason}"
+            if reason == "other" and cancel.other_reason
             else reason
         )
 
@@ -266,11 +273,11 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
         refund = Pays.objects.filter(subs=obj.sub, status="REFUNDED").latest(
             "refund_at"
         )
-        return refund.paid_at.strftime("%Y-%m-%d") if refund else None
+        return refund.refund_at.strftime("%Y-%m-%d") if refund.refund_at else None
 
     def get_refund_status(self, obj: SubHistories) -> str | None:
         """sub_status 상태"""
-        if obj.status in ["cancelled", "refund_pending"]:
+        if obj.status in ["cancel", "refund_pending"]:
             return obj.status
         return None
 

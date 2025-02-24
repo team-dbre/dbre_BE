@@ -48,7 +48,7 @@ class SubscriptionPaymentService:
         if (
             existing_sub
             and existing_sub.plan == self.plan
-            and existing_sub.user.sub_status == "active"
+            and existing_sub.user.sub_status in ["active", "refund_pending"]
         ):
             raise ValueError(f"이미 {existing_sub.plan}에 구독중입니다.")
 

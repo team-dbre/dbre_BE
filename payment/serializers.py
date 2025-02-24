@@ -154,9 +154,12 @@ class RefundSerializer(serializers.Serializer):
 
         # 구독이 이미 취소된 경우
         if not subscription.auto_renew:
-            raise serializers.ValidationError(
-                {"subscription": "이미 취소된 구독입니다."}
-            )
+            if subscription.user.sub_status == "paused":
+                pass
+            else:
+                raise serializers.ValidationError(
+                    {"subscription": "이미 취소된 구독입니다."}
+                )
 
         if "other" in data.get("cancelled_reason", []) and not data.get("other_reason"):
             raise serializers.ValidationError(
