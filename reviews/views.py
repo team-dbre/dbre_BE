@@ -1,4 +1,5 @@
 from django.shortcuts import get_object_or_404, render
+from django.utils.timezone import now
 from drf_spectacular.utils import extend_schema
 from rest_framework import permissions, status
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
@@ -28,29 +29,40 @@ class ReviewCreateView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def get(self, request: Request) -> Response:
+        all_reviews = Review.objects.all().count()
+        new_reviews = Review.objects.filter(created_at__date=now().date()).count()
         # 리뷰 전체 조회
         if not request.user.is_staff:
             return Response(status=status.HTTP_403_FORBIDDEN)
 
         reviews = Review.objects.all()
         serializer = ReviewGetSerializer(reviews, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "dashboard": {
+                    "reviews": all_reviews,
+                    "new_reviews": new_reviews,
+                },
+                "requests": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
-@extend_schema(
-    tags=["review"],
-    responses={200: ReviewGetSerializer()},
-    request=ReviewGetSerializer,
-)
-class ReviewDetailView(APIView):
-    """
-    리뷰 상세 조회
-    """
-
-    permission_classes = [IsAdminUser]
-    serializer_class = ReviewGetSerializer
-
-    def get(self, request: Request, review_id: int) -> Response:
-        review = get_object_or_404(Review, id=review_id)
-        serializer = ReviewGetSerializer(review, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+# @extend_schema(
+#     tags=["review"],
+#     responses={200: ReviewGetSerializer()},
+#     request=ReviewGetSerializer,
+# )
+# class ReviewDetailView(APIView):
+#     """
+#     리뷰 상세 조회
+#     """
+#
+#     permission_classes = [IsAdminUser]
+#     serializer_class = ReviewGetSerializer
+#
+#     def get(self, request: Request, review_id: int) -> Response:
+#         review = get_object_or_404(Review, id=review_id)
+#         serializer = ReviewGetSerializer(review, context={"request": request})
+#         return Response(serializer.data, status=status.HTTP_200_OK)

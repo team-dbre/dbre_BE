@@ -107,6 +107,7 @@ class PlanActivateView(APIView):
     """
 
     permission_classes = [IsAdminUser]
+    serializer_class = PlanSerializer
 
     @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
     def post(self, request: PlanSerializer, plan_id: int) -> Response:

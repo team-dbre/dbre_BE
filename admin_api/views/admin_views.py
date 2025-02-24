@@ -5,6 +5,7 @@ from uuid import UUID
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
+from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
@@ -25,6 +26,8 @@ from admin_api.serializers import (
     AdminUserSerializer,
     DashboardSerializer,
 )
+from payment.models import Pays
+from reviews.models import Review
 from subscription.models import SubHistories, Subs
 from tally.models import Tally
 from user.utils import measure_time
@@ -37,11 +40,23 @@ class DashboardView(APIView):
     """
 
     permission_classes = [IsAdminUser]
+    serializer_class = DashboardSerializer
 
     def get(self, request: Request) -> Response:
+        """작업 요청 현황"""
+        # 오늘 신규 요청
+        new_request_today = Tally.objects.filter(
+            submitted_at__date=now().date()
+        ).count()
+        # 미완료
+        request_incomplete = Tally.objects.filter(complete=False).count()
+        # 완료
+        request_complete = Tally.objects.filter(complete=True).count()
+        """상담 예약 현황"""
+        """구독 현황"""
         # 전체 구독자 수
-        total_subscriptions = Subs.objects.exclude(
-            user__sub_status__in=[None, "cancelled"]
+        total_subscriptions = Subs.objects.filter(
+            user__sub_status__in=["active"]
         ).count()
         # 오늘 일시정지 수
         paused_subscriptions = (
@@ -54,13 +69,46 @@ class DashboardView(APIView):
         new_subscriptions_today = Subs.objects.filter(
             start_date__date=timezone.now().date()
         ).count()
-        # active_subscriptions = Subs.objects.filter(auto_renew=True).count() # 진행 중
+        """구독 취소 현황"""
+        # 전체 취소
+        subs_cancel_all = SubHistories.objects.filter(status="refund_pending").count()
+        # 오늘 취소
+        subs_cancel_today = SubHistories.objects.filter(
+            status="refund_pending", change_date=now().today()
+        ).count()
+        """리뷰 현황"""
+        all_reviews = Review.objects.all().count()
+        new_reviews = Review.objects.filter(created_at__date=now().date()).count()
+        """고객 현황"""
+        """매출 현황"""
+        monthly_sales = (
+            Pays.objects.filter(paid_at__month=now().date().month).aggregate(
+                total_amount=Sum("amount")
+            )["total_amount"]
+            or 0
+        )
+        monthly_refunds = (
+            Pays.objects.filter(refund_at__month=now().date().month).aggregate(
+                total_refund=Sum("refund_amount")
+            )["total_refund"]
+            or 0
+        )
+        monthly_total_sales = monthly_sales - monthly_refunds
 
         data = {
+            "new_request_today": new_request_today,  # 오늘 신규 요청
+            "request_incomplete": request_incomplete,  # 미완료
+            "request_complete": request_complete,  # 완료
             "total_subscriptions": total_subscriptions,  # 전체 구독
-            # "active_subscriptions": active_subscriptions,  # 진행 중
             "paused_subscriptions": paused_subscriptions,  # 일시 정지
             "new_subscriptions_today": new_subscriptions_today,  # 오늘 신규 구독
+            "subs_cancel_all": subs_cancel_all,  # 구독 전체 취소
+            "subs_cancel_today": subs_cancel_today,  # 구독 오늘 취소
+            "all_reviews": all_reviews,  # 전체 리뷰
+            "new_reviews": new_reviews,  # 오늘 리뷰
+            "monthly_sales": monthly_sales,  # 당월 매출
+            "monthly_refunds": monthly_refunds,  # 당월 취소 매출
+            "monthly_total_sales": monthly_total_sales,  # 당월 총 매출
         }
 
         serializer = DashboardSerializer(instance=data)
@@ -202,9 +250,28 @@ class AdminTallyView(APIView):
 
     def get(self, request: Request) -> Response:
         """작업 요청 관리"""
+        # 오늘 신규 요청
+        new_request_today = Tally.objects.filter(
+            submitted_at__date=now().date()
+        ).count()
+        # 미완료
+        request_incomplete = Tally.objects.filter(complete=False).count()
+        # 완료
+        request_complete = Tally.objects.filter(complete=True).count()
+
         tally = Tally.objects.select_related("user").all()
         serializer = AdminTallySerializer(tally, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "dashboard": {
+                    "new_request_today": new_request_today,  # 오늘 신규 요청
+                    "request_incomplete": request_incomplete,  # 미완료
+                    "request_complete": request_complete,  # 완료
+                },
+                "requests": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminTallyCompleteView(APIView):

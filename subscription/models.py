@@ -69,9 +69,9 @@ class SubHistories(models.Model):
     ]
 
     id = models.AutoField(primary_key=True)
-    sub = models.ForeignKey(Subs, on_delete=models.CASCADE)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    plan = models.ForeignKey(Plans, on_delete=models.CASCADE)
+    sub = models.ForeignKey(Subs, on_delete=models.SET_NULL, null=True)
+    user = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
+    plan = models.ForeignKey(Plans, on_delete=models.SET_NULL, null=True)
     change_date = models.DateTimeField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES)
     cancelled_reason = models.CharField(
@@ -82,4 +82,6 @@ class SubHistories(models.Model):
     )
 
     def __str__(self) -> str:
-        return f"SubscriptionHistory {self.id} - {self.user.email}"
+        return (
+            f"SubscriptionHistory {self.id} - {self.user.email if self.user else None}"
+        )
