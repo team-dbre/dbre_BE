@@ -501,3 +501,11 @@ class UserManagementResponseSerializer(serializers.Serializer):
     previous = serializers.URLField(allow_null=True)
     statistics = StatisticsSerializer()
     users = UserManagementSerializer(many=True)
+
+
+class DeletedUserSerializer(serializers.ModelSerializer):
+    reason = serializers.CharField()
+
+    class Meta:
+        model = CustomUser
+        fields = ("id", "deleted_at", "name", "email", "phone", "reason")
