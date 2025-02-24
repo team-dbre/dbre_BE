@@ -277,3 +277,51 @@ class AdminCancelReasonView(APIView):
 
         serializer = AdminCancelReasonSerializer(cancel_count, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminRefundInfoView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def get(
+        self, request: Request, subs_id: int, *args: Any, **kwargs: Any
+    ) -> Response:
+        """환불 승인 전 결제 정보 확인 조회하는 api(환불 팝업)"""
+
+        try:
+            subscription = Subs.objects.get(
+                id=subs_id, user__sub_status="refund_pending"
+            )
+        except Subs.DoesNotExist:
+            return Response(
+                {"error": "해당 구독이 환불 대기 상태가 아닙니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payment = (
+            Pays.objects.filter(
+                user=subscription.user, subs=subscription, status="PAID"
+            )
+            .order_by("-paid_at")
+            .first()
+        )
+        if not payment:
+            return Response(
+                {"error": "결제 정보를 찾을 수 없습니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        refund_service = RefundService(
+            user=subscription.user,
+            subscription=subscription,
+            cancel_reason="환불 예정 금액 계산",
+            other_reason="",
+        )
+        refund_amount = refund_service.calculate_refund_amount(payment)
+
+        data = {
+            "user_name": subscription.user.name,
+            "paid_at": payment.paid_at.strftime("%Y/%m/%d %H:%M:%S"),
+            "paid_amount": refund_amount,
+            "refund_amount": refund_amount,
+        }
+        return Response(data, status=status.HTTP_200_OK)
