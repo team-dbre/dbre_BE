@@ -1,12 +1,9 @@
 import decimal
 
-from datetime import timedelta
 from typing import Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.utils.timezone import now
-from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -343,3 +340,30 @@ class AdminTallySerializer(serializers.Serializer):
 
 class AdminTallyCompleteSerializer(serializers.Serializer):
     tally_id = serializers.IntegerField()
+
+
+class AdminPasswordChangeSerializer(serializers.Serializer):
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value: str) -> str:
+        # 추가적인 비밀번호 강도 검증
+        if len(value) < 10:
+            raise serializers.ValidationError("비밀번호는 최소 10자 이상이어야 합니다.")
+        if not any(char.isdigit() for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 숫자를 포함해야 합니다."
+            )
+        if not any(char.isupper() for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 대문자를 포함해야 합니다."
+            )
+        if not any(char.islower() for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 소문자를 포함해야 합니다."
+            )
+        if not any(char in '!@#$%^&*(),.?":{}|<>' for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 특수문자를 포함해야 합니다."
+            )
+
+        return value

@@ -1,8 +1,10 @@
 from datetime import timedelta
 from typing import Any, cast
+from uuid import UUID
 
 from django.conf import settings
 from django.core.cache import cache
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
@@ -17,6 +19,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from admin_api.models import AdminLoginLog
 from admin_api.serializers import (
     AdminLoginSerializer,
+    AdminPasswordChangeSerializer,
     AdminTallyCompleteSerializer,
     AdminTallySerializer,
     AdminUserSerializer,
@@ -93,6 +96,33 @@ class AdminUserView(APIView):
             return Response(
                 {"message": "관리자 계정이 생성되었습니다.", "email": user.email},
                 status=status.HTTP_201_CREATED,
+            )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        tags=["admin"],
+        summary="Change Admin User Password",
+        description="Change the password of the logged-in admin user (requires superuser)",
+        request=AdminPasswordChangeSerializer,
+        responses={
+            200: OpenApiResponse(description="Password changed successfully"),
+            400: OpenApiResponse(description="Bad request"),
+            403: OpenApiResponse(description="Forbidden"),
+        },
+    )
+    def patch(self, request: Request) -> Response:
+        if not request.user.is_staff:
+            raise PermissionDenied(
+                "관리자만 관리자 계정의 비밀번호를 변경할 수 있습니다."
+            )
+
+        serializer = AdminPasswordChangeSerializer(data=request.data)
+        if serializer.is_valid():
+            request.user.set_password(serializer.validated_data["new_password"])
+            request.user.save()
+            return Response(
+                {"message": "관리자 계정의 비밀번호가 변경되었습니다."},
+                status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
