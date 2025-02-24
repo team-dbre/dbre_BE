@@ -9,7 +9,10 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from admin_api.serializers import UserManagementSerializer
+from admin_api.serializers import (
+    UserManagementResponseSerializer,
+    UserManagementSerializer,
+)
 from payment.models import Pays
 from subscription.models import Subs
 from user.models import Agreements, CustomUser
@@ -27,6 +30,8 @@ class UserManagementView(APIView):
 
     @extend_schema(
         tags=["admin"],
+        summary="Admin page 고객관리 고객목록",
+        description="고객목록 정렬기준 (name, email, phone, is_subscribed (구독여부), sub_status (구독현황), created_at (가입일), last_login (마지막 방문일), marketing_consent (마케팅 수신동의), start_date (최초결제일), latest_paid_at (최근결제일), end_date (구독만료일)",
         parameters=[
             OpenApiParameter(
                 name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
@@ -43,7 +48,7 @@ class UserManagementView(APIView):
                 name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
             ),
         ],
-        responses={200: UserManagementSerializer(many=True)},
+        responses={200: UserManagementResponseSerializer},
     )
     def get(self, request: Request) -> Response:
         order_by = request.query_params.get("order_by", "name")
@@ -112,8 +117,11 @@ class UserManagementView(APIView):
         )
 
         response_data = {
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
             "statistics": user_stats,
             "users": serializer.data,
         }
 
-        return paginator.get_paginated_response(response_data)
+        return Response(response_data)
