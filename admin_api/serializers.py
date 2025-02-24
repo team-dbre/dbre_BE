@@ -55,11 +55,16 @@ class DashboardSerializer(serializers.Serializer):
     monthly_total_sales = serializers.IntegerField()
 
 
+class UserSubscriptionSerializer(serializers.ModelSerializer):
+    """사용자 정보 직렬화"""
+
+    class Meta:
+        model = CustomUser
+        fields = ["name", "email", "phone", "sub_status"]
+
+
 class SubscriptionSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.name", read_only=True)
-    user_email = serializers.CharField(source="user.email", read_only=True)
-    user_phone = serializers.CharField(source="user.phone", read_only=True)
-    user_status = serializers.CharField(source="user.sub_status", read_only=True)
+    user = UserSubscriptionSerializer(read_only=True)
     plan_name = serializers.CharField(source="plan.plan_name", read_only=True)
     first_payment_date = serializers.SerializerMethodField()
     last_payment_date = serializers.SerializerMethodField()
@@ -69,11 +74,8 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         model = Subs
         fields = [
             "id",
-            "user_name",
-            "user_email",
-            "user_phone",
+            "user",
             "plan_name",
-            "user_status",
             "first_payment_date",
             "last_payment_date",
             "expiry_date",
@@ -81,32 +83,58 @@ class SubscriptionSerializer(serializers.ModelSerializer):
         ]
 
     def get_first_payment_date(self, obj: Subs) -> str | None:
-        """
-        최초 결제일 (subhistory에서 첫 구독 날짜 가져오기)
-        """
+        """최초 결제일 (subhistory에서 첫 구독 날짜 가져오기)"""
         history = SubHistories.objects.filter(sub=obj).order_by("change_date").first()
         return history.change_date.strftime("%Y-%m-%d") if history else None
 
     def get_last_payment_date(self, obj: Subs) -> str | None:
-        """
-        최근 결제일
-        """
+        """최근 결제일"""
         return obj.start_date.strftime("%Y-%m-%d") if obj.start_date else None
 
     def get_expiry_date(self, obj: Subs) -> str | None:
-        """
-        구독 만료일
-        """
+        """구독 만료일"""
         return obj.end_date.strftime("%Y-%m-%d") if obj.end_date else None
 
 
 class SubscriptionHistorySerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.name", read_only=True)
-    plan_name = serializers.CharField(source="plan.plan_name", read_only=True)
+
+    change_date = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    amount = serializers.SerializerMethodField()
 
     class Meta:
         model = SubHistories
-        fields = ["id", "user_name", "plan_name", "status", "change_date"]
+        fields = ["change_date", "status", "amount"]
+
+    def get_change_date(self, obj: SubHistories) -> str:
+        """YYYY-MM-DD 형식으로 변환"""
+        return obj.change_date.strftime("%Y-%m-%d")
+
+    def get_status(self, obj: SubHistories) -> str:
+        """변경 상태를 한글로 변환"""
+        status_mapping = {
+            "renewal": "결제",
+            "cancel": "구독 취소",
+            "pause": "일시 정지",
+            "restart": "재개",
+            "refund_pending": "환불 대기",
+        }
+        return status_mapping.get(obj.status, "기타")
+
+    def get_amount(self, obj: SubHistories) -> str:
+        """해당 변경 상태에 따라 결제 금액 반환"""
+        payment = Pays.objects.filter(subs=obj.sub).order_by("-paid_at").first()
+        refund = (
+            Pays.objects.filter(subs=obj.sub, status="REFUNDED")
+            .order_by("-refund_at")
+            .first()
+        )
+
+        if obj.status == "renewal" and payment:
+            return f"{int(payment.amount):,}원"
+        elif obj.status == "cancel" and refund:
+            return f"-{int(refund.refund_amount):,}원"  # type: ignore
+        return "-"
 
 
 class SubsCancelledSerializer(serializers.ModelSerializer):

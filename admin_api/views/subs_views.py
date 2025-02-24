@@ -5,7 +5,7 @@ from typing import Any
 from django.db.models import Count, Max, Min, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.timezone import now
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser
 from rest_framework.request import Request
@@ -29,21 +29,18 @@ logger = logging.getLogger(__name__)
 
 @extend_schema(tags=["admin"])
 class SubscriptionListView(APIView):
-    """
-    구독 현황 관리
-    """
+    """구독 현황 관리"""
 
     permission_classes = [IsAdminUser]
-    serializer_class = SubscriptionSerializer
 
     def get(self, request: Request) -> Response:
         # 전체 구독자 수
-        total_subscriptions = Subs.objects.filter(
-            user__sub_status__in=["active"]
-        ).count()
+        total_subscriptions = Subs.objects.filter(user__sub_status="active").count()
         # 오늘 일시정지 수
         paused_subscriptions = (
-            SubHistories.objects.filter(status="paused", change_date__date=now().date())
+            SubHistories.objects.filter(
+                status="paused", change_date__date=timezone.now().date()
+            )
             .values("user")
             .distinct()
             .count()
@@ -83,6 +80,7 @@ class SubscriptionListView(APIView):
             sort_by = "user__sub_status"
         elif sort_by == "expiry_date":
             sort_by = "end_date"
+
         # 첫 구독일 기준 정렬 (히스토리에서 가져옴)
         if sort_by == "change_date":
             subscriptions = subscriptions.annotate(
@@ -102,25 +100,42 @@ class SubscriptionListView(APIView):
                     "paused_subscriptions": paused_subscriptions,
                     "new_subscriptions_today": new_subscriptions_today,
                 },
-                "requests": serializer.data,
+                "subscriptions": serializer.data,
             },
-            status=status.HTTP_200_OK,
+            status=200,
         )
 
 
-@extend_schema(tags=["admin"])
+@extend_schema(
+    tags=["admin"],
+    request=SubscriptionHistorySerializer,
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            required=True,
+            description="조회할 사용자의 ID",
+        )
+    ],
+)
 class SubscriptionHistoryListView(APIView):
-    """
-    특정 사용자 구독 변경 이력 조회
-    """
+    """특정 사용자 구독 변경 이력 조회"""
 
     permission_classes = [IsAdminUser]
     serializer_class = SubscriptionHistorySerializer
 
-    def get(self, request: Request) -> Response:
-        histories = SubHistories.objects.all().order_by("-change_date")
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        user_id = request.query_params.get("user_id")
+        if not user_id:
+            return Response({"error": "user_id가 필요합니다."}, status=400)
+
+        histories = SubHistories.objects.filter(sub__user_id=user_id).order_by(
+            "-change_date"
+        )
         serializer = SubscriptionHistorySerializer(histories, many=True)
-        return Response(serializer.data)
+
+        return Response({"history": serializer.data})
 
 
 @extend_schema(tags=["admin"])
@@ -225,7 +240,7 @@ class AdminRefundView(APIView):
             SubHistories.objects.create(
                 sub=subscription,
                 user=subscription.user,
-                status="cancelled",
+                status="cancel",
                 change_date=now(),
                 plan=subscription.plan,
                 cancelled_reason="관리자 승인 환불",
