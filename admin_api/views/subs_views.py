@@ -32,6 +32,7 @@ class SubscriptionListView(APIView):
     """구독 현황 관리"""
 
     permission_classes = [IsAdminUser]
+    serializer_class = SubscriptionSerializer
 
     def get(self, request: Request) -> Response:
         # 전체 구독자 수
