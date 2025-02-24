@@ -19,60 +19,61 @@ from subscription.models import Subs
 from user.models import Agreements, CustomUser, WithdrawalReason
 
 
-class CustomPagination(PageNumberPagination):
-    page_size = 10
-    page_size_query_param = "page_size"
-    max_page_size = 100
+# 현재 pagination 프론트에서 관리
+# class CustomPagination(PageNumberPagination):
+#     page_size = 10
+#     page_size_query_param = "page_size"
+#     max_page_size = 100
 
 
 class UserManagementView(APIView):
     permission_classes = [IsAdminUser]
-    pagination_class = CustomPagination
+    # pagination_class = CustomPagination
 
     @extend_schema(
         tags=["admin"],
         summary="Admin page 고객관리 고객목록",
         description="고객목록 정렬기준 (name, email, phone, is_subscribed (구독여부), sub_status (구독현황), created_at (가입일), last_login (마지막 방문일), marketing_consent (마케팅 수신동의), start_date (최초결제일), latest_paid_at (최근결제일), end_date (구독만료일)",
-        parameters=[
-            OpenApiParameter(
-                name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
-            ),
-            OpenApiParameter(
-                name="order_direction",
-                description="정렬 순서 (asc 또는 desc)",
-                type=OpenApiTypes.STR,
-            ),
-            OpenApiParameter(
-                name="page", description="페이지 번호", type=OpenApiTypes.INT
-            ),
-            OpenApiParameter(
-                name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
-            ),
-        ],
+        # parameters=[
+        #     OpenApiParameter(
+        #         name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
+        #     ),
+        #     OpenApiParameter(
+        #         name="order_direction",
+        #         description="정렬 순서 (asc 또는 desc)",
+        #         type=OpenApiTypes.STR,
+        #     ),
+        #     OpenApiParameter(
+        #         name="page", description="페이지 번호", type=OpenApiTypes.INT
+        #     ),
+        #     OpenApiParameter(
+        #         name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
+        #     ),
+        # ],
         responses={200: UserManagementResponseSerializer},
     )
     def get(self, request: Request) -> Response:
-        order_by = request.query_params.get("order_by", "name")
-        order_direction = request.query_params.get("order_direction", "asc")
-
-        valid_order_fields = {
-            "name": "name",
-            "email": "email",
-            "phone": "phone",
-            "sub_status": "sub_status",
-            "created_at": "created_at",
-            "last_login": "last_login",
-            "marketing": "marketing_consent",
-            "start_date": "start_date",
-            "paid_at": "latest_paid_at",
-            "end_date": "end_date",
-        }
-
-        if order_by not in valid_order_fields:
-            order_by = "name"
-
-        order_prefix = "-" if order_direction == "desc" else ""
-        order_field = f"{order_prefix}{valid_order_fields[order_by]}"
+        # order_by = request.query_params.get("order_by", "name")
+        # order_direction = request.query_params.get("order_direction", "asc")
+        #
+        # valid_order_fields = {
+        #     "name": "name",
+        #     "email": "email",
+        #     "phone": "phone",
+        #     "sub_status": "sub_status",
+        #     "created_at": "created_at",
+        #     "last_login": "last_login",
+        #     "marketing": "marketing_consent",
+        #     "start_date": "start_date",
+        #     "paid_at": "latest_paid_at",
+        #     "end_date": "end_date",
+        # }
+        #
+        # if order_by not in valid_order_fields:
+        #     order_by = "name"
+        #
+        # order_prefix = "-" if order_direction == "desc" else ""
+        # order_field = f"{order_prefix}{valid_order_fields[order_by]}"
 
         today = timezone.now().date()
 
@@ -101,12 +102,13 @@ class UserManagementView(APIView):
                 latest_paid_at=Subquery(latest_payment.values("paid_at")[:1]),
             )
             .prefetch_related("agreements_set")  # agreements_set으로 변경
-            .order_by(order_field)
+            # .order_by(order_field)
         )
 
-        paginator = self.pagination_class()
-        paginated_users = paginator.paginate_queryset(users, request)
-        serializer = UserManagementSerializer(paginated_users, many=True)
+        # paginator = self.pagination_class()
+        # paginated_users = paginator.paginate_queryset(users, request)
+        # serializer = UserManagementSerializer(paginated_users, many=True)
+        serializer = UserManagementSerializer(users, many=True)
 
         # 통계 쿼리 최적화
         user_stats = CustomUser.objects.aggregate(
@@ -118,9 +120,9 @@ class UserManagementView(APIView):
         )
 
         response_data = {
-            "count": paginator.page.paginator.count,
-            "next": paginator.get_next_link(),
-            "previous": paginator.get_previous_link(),
+            # "count": paginator.page.paginator.count,
+            # "next": paginator.get_next_link(),
+            # "previous": paginator.get_previous_link(),
             "statistics": user_stats,
             "users": serializer.data,
         }
@@ -130,47 +132,47 @@ class UserManagementView(APIView):
 
 class DeleteUserMangementView(APIView):
     permission_classes = [IsAdminUser]
-    pagination_class = CustomPagination
+    # pagination_class = CustomPagination
 
     @extend_schema(
         tags=["admin"],
         summary="Admin page 탈퇴 요청 회원 목록",
         description="탈퇴 회원 목록 정렬 기준 (deleted_at, name, email, phone, reason)",
-        parameters=[
-            OpenApiParameter(
-                name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
-            ),
-            OpenApiParameter(
-                name="order_direction",
-                description="정렬 순서 (asc 또는 desc)",
-                type=OpenApiTypes.STR,
-            ),
-            OpenApiParameter(
-                name="page", description="페이지 번호", type=OpenApiTypes.INT
-            ),
-            OpenApiParameter(
-                name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
-            ),
-        ],
+        # parameters=[
+        #     OpenApiParameter(
+        #         name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
+        #     ),
+        #     OpenApiParameter(
+        #         name="order_direction",
+        #         description="정렬 순서 (asc 또는 desc)",
+        #         type=OpenApiTypes.STR,
+        #     ),
+        #     OpenApiParameter(
+        #         name="page", description="페이지 번호", type=OpenApiTypes.INT
+        #     ),
+        #     OpenApiParameter(
+        #         name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
+        #     ),
+        # ],
         responses={200: DeletedUserSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
-        order_by = request.query_params.get("order_by", "deleted_at")
-        order_direction = request.query_params.get("order_direction", "desc")
-
-        valid_order_fields = {
-            "deleted_at": "deleted_at",
-            "name": "name",
-            "email": "email",
-            "phone": "phone",
-            "reason": "reason",
-        }
-
-        if order_by not in valid_order_fields:
-            order_by = "deleted_at"
-
-        order_prefix = "-" if order_direction == "desc" else ""
-        order_field = f"{order_prefix}{valid_order_fields[order_by]}"
+        # order_by = request.query_params.get("order_by", "deleted_at")
+        # order_direction = request.query_params.get("order_direction", "desc")
+        #
+        # valid_order_fields = {
+        #     "deleted_at": "deleted_at",
+        #     "name": "name",
+        #     "email": "email",
+        #     "phone": "phone",
+        #     "reason": "reason",
+        # }
+        #
+        # if order_by not in valid_order_fields:
+        #     order_by = "deleted_at"
+        #
+        # order_prefix = "-" if order_direction == "desc" else ""
+        # order_field = f"{order_prefix}{valid_order_fields[order_by]}"
 
         # Subquery for withdrawal reason
         reason_subquery = WithdrawalReason.objects.filter(user=OuterRef("pk")).values(
@@ -181,12 +183,14 @@ class DeleteUserMangementView(APIView):
             CustomUser.objects.filter(is_active=False)
             .annotate(reason=Subquery(reason_subquery))
             .values("id", "deleted_at", "name", "email", "phone", "reason")
-            .order_by(order_field)
+            # .order_by(order_field)
         )
 
-        paginator = self.pagination_class()
-        paginated_users = paginator.paginate_queryset(deleted_users, request)
+        # paginator = self.pagination_class()
+        # paginated_users = paginator.paginate_queryset(deleted_users, request)
 
-        serializer = DeletedUserSerializer(paginated_users, many=True)
+        # serializer = DeletedUserSerializer(paginated_users, many=True)
+        serializer = DeletedUserSerializer(deleted_users, many=True)
 
-        return paginator.get_paginated_response(serializer.data)
+        # return paginator.get_paginated_response(serializer.data)
+        return Response(serializer.data)
