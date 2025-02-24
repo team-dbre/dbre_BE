@@ -15,6 +15,7 @@ from admin_api.views.subs_views import (
     SubscriptionHistoryListView,
     SubscriptionListView,
 )
+from admin_api.views.user_views import UserManagementView
 
 
 admin_patterns = [
@@ -40,4 +41,5 @@ admin_patterns = [
     ),
     path("tally/", AdminTallyView.as_view(), name="탈리"),
     path("tally/complete/", AdminTallyCompleteView.as_view(), name="탈리 완료 처리"),
+    path("user/", UserManagementView.as_view(), name="user-management"),
 ]

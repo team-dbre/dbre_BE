@@ -1,0 +1,119 @@
+from django.db.models import Case, CharField, Count, OuterRef, Q, Subquery, Value, When
+from django.db.models.functions import Coalesce
+from django.utils import timezone
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import OpenApiParameter, extend_schema
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAdminUser
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from admin_api.serializers import UserManagementSerializer
+from payment.models import Pays
+from subscription.models import Subs
+from user.models import Agreements, CustomUser
+
+
+class CustomPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 100
+
+
+class UserManagementView(APIView):
+    permission_classes = [IsAdminUser]
+    pagination_class = CustomPagination
+
+    @extend_schema(
+        tags=["admin"],
+        parameters=[
+            OpenApiParameter(
+                name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
+            ),
+            OpenApiParameter(
+                name="order_direction",
+                description="정렬 순서 (asc 또는 desc)",
+                type=OpenApiTypes.STR,
+            ),
+            OpenApiParameter(
+                name="page", description="페이지 번호", type=OpenApiTypes.INT
+            ),
+            OpenApiParameter(
+                name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
+            ),
+        ],
+        responses={200: UserManagementSerializer(many=True)},
+    )
+    def get(self, request: Request) -> Response:
+        order_by = request.query_params.get("order_by", "name")
+        order_direction = request.query_params.get("order_direction", "asc")
+
+        valid_order_fields = {
+            "name": "name",
+            "email": "email",
+            "phone": "phone",
+            "sub_status": "sub_status",
+            "created_at": "created_at",
+            "last_login": "last_login",
+            "marketing": "marketing_consent",
+            "start_date": "start_date",
+            "paid_at": "latest_paid_at",
+            "end_date": "end_date",
+        }
+
+        if order_by not in valid_order_fields:
+            order_by = "name"
+
+        order_prefix = "-" if order_direction == "desc" else ""
+        order_field = f"{order_prefix}{valid_order_fields[order_by]}"
+
+        today = timezone.now().date()
+
+        # 서브쿼리 최적화
+        latest_sub = Subs.objects.filter(user=OuterRef("pk")).order_by("-start_date")
+        latest_payment = Pays.objects.filter(user=OuterRef("pk")).order_by("-paid_at")
+
+        users = (
+            CustomUser.objects.filter(is_active=True, is_staff=False)
+            .annotate(
+                is_subscribed=Case(
+                    When(sub_status__in=["active", "paused"], then=Value("구독중")),
+                    default=Value("미구독"),
+                    output_field=CharField(),
+                ),
+                marketing_consent=Coalesce(
+                    Subquery(
+                        Agreements.objects.filter(user=OuterRef("pk")).values(
+                            "marketing"
+                        )[:1]
+                    ),
+                    Value(False),
+                ),
+                start_date=Subquery(latest_sub.values("start_date")[:1]),
+                end_date=Subquery(latest_sub.values("end_date")[:1]),
+                latest_paid_at=Subquery(latest_payment.values("paid_at")[:1]),
+            )
+            .prefetch_related("agreements_set")  # agreements_set으로 변경
+            .order_by(order_field)
+        )
+
+        paginator = self.pagination_class()
+        paginated_users = paginator.paginate_queryset(users, request)
+        serializer = UserManagementSerializer(paginated_users, many=True)
+
+        # 통계 쿼리 최적화
+        user_stats = CustomUser.objects.aggregate(
+            total_users=Count("id", filter=Q(is_staff=False)),
+            new_users_today=Count(
+                "id", filter=Q(created_at__date=today, is_active=True, is_staff=False)
+            ),
+            deleted_users_today=Count("id", filter=Q(deleted_at__date=today)),
+        )
+
+        response_data = {
+            "statistics": user_stats,
+            "users": serializer.data,
+        }
+
+        return paginator.get_paginated_response(response_data)
