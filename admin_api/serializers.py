@@ -1,12 +1,10 @@
+import datetime
 import decimal
 
-from datetime import timedelta
 from typing import Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
-from django.utils.timezone import now
-from drf_spectacular.utils import extend_schema
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -34,9 +32,27 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 
 class DashboardSerializer(serializers.Serializer):
+    # 작업 요청 현황
+    new_request_today = serializers.IntegerField()
+    request_incomplete = serializers.IntegerField()
+    request_complete = serializers.IntegerField()
+    # 온라인 미팅 현황
+    # 구독 현황
     total_subscriptions = serializers.IntegerField(help_text="전체 구독")
     new_subscriptions_today = serializers.IntegerField(help_text="신규 구독")
     paused_subscriptions = serializers.IntegerField(help_text="오늘 구독 일시정지")
+    # 구독 취소 현황
+    subs_cancel_all = serializers.IntegerField()
+    subs_cancel_today = serializers.IntegerField()
+    # 리뷰 현황
+    all_reviews = serializers.IntegerField()
+    new_reviews = serializers.IntegerField()
+    # 고객 현황
+
+    # 매출 현황
+    monthly_sales = serializers.IntegerField()
+    monthly_refunds = serializers.IntegerField()
+    monthly_total_sales = serializers.IntegerField()
 
 
 class SubscriptionSerializer(serializers.ModelSerializer):
@@ -343,3 +359,70 @@ class AdminTallySerializer(serializers.Serializer):
 
 class AdminTallyCompleteSerializer(serializers.Serializer):
     tally_id = serializers.IntegerField()
+
+
+class AdminSalesSerializer(serializers.ModelSerializer):
+    """결제 및 환불 내역 직렬화"""
+
+    transaction_date = serializers.SerializerMethodField()
+    transaction_amount = serializers.SerializerMethodField()
+    transaction_type = serializers.SerializerMethodField()
+    user_name = serializers.CharField(source="user.name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    user_phone = serializers.CharField(source="user.phone", read_only=True)
+
+    class Meta:
+        model = Pays
+        fields = [
+            "id",
+            "transaction_date",
+            "transaction_amount",
+            "transaction_type",
+            "user_name",
+            "user_email",
+            "user_phone",
+        ]
+
+    def get_transaction_date(self, obj: Pays) -> datetime.date:
+        return (
+            obj.refund_at.date()  # type: ignore
+            if self.context.get("is_refund")
+            else obj.paid_at.date()
+        )
+
+    def get_transaction_amount(self, obj: Pays) -> str:
+        if self.context.get("is_refund"):  # 환불 내역일 경우
+            return f"-{int(obj.refund_amount):,} 원"  # type: ignore
+        return f"{int(obj.amount):,} 원"  # 결제 내역일 경우
+
+    def get_transaction_type(self, obj: Pays) -> str:
+        if self.context.get("is_refund"):
+            return "구독취소"  # 환불이 있는 경우에만 "구독취소"
+        return "결제"  # 결제 내역은 항상 "결제"로 표시
+
+
+class AdminPasswordChangeSerializer(serializers.Serializer):
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value: str) -> str:
+        # 추가적인 비밀번호 강도 검증
+        if len(value) < 10:
+            raise serializers.ValidationError("비밀번호는 최소 10자 이상이어야 합니다.")
+        if not any(char.isdigit() for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 숫자를 포함해야 합니다."
+            )
+        if not any(char.isupper() for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 대문자를 포함해야 합니다."
+            )
+        if not any(char.islower() for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 소문자를 포함해야 합니다."
+            )
+        if not any(char in '!@#$%^&*(),.?":{}|<>' for char in value):
+            raise serializers.ValidationError(
+                "비밀번호는 최소 1개의 특수문자를 포함해야 합니다."
+            )
+
+        return value

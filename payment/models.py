@@ -22,7 +22,7 @@ class Pays(models.Model):
     refund_amount = models.DecimalField(decimal_places=2, max_digits=10, null=True)
     status = models.CharField(max_length=10, choices=pays_choices, default="PAID")
     paid_at = models.DateTimeField(auto_now_add=True)
-    refund_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
+    refund_at = models.DateTimeField(null=True, blank=True)
 
     def __str__(self) -> str:
         return f"{self.amount} {self.status}"
