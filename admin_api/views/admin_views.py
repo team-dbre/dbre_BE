@@ -1,6 +1,5 @@
 from datetime import timedelta
 from typing import Any, cast
-from uuid import UUID
 
 from django.conf import settings
 from django.core.cache import cache
