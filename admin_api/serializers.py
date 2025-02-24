@@ -277,6 +277,8 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
     def get_expected_refund_amount(self, obj: SubHistories) -> str:
         """환불 예정 금액"""
         subscription = obj.sub
+        if not subscription:
+            return "None"
         payment = (
             Pays.objects.filter(user=subscription.user, subs=subscription)
             .order_by("-id")
