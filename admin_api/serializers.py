@@ -137,27 +137,27 @@ class SubscriptionHistorySerializer(serializers.ModelSerializer):
         return "-"
 
 
-class SubsCancelledSerializer(serializers.ModelSerializer):
-    user_name = serializers.CharField(source="user.name", read_only=True)
-    user_email = serializers.CharField(source="user.email", read_only=True)
-    user_phone = serializers.CharField(source="user.phone", read_only=True)
-    cancelled_date = serializers.SerializerMethodField()
-    refund_date = serializers.SerializerMethodField()
-    refund_amount = serializers.SerializerMethodField()
+# class SubsCancelledSerializer(serializers.ModelSerializer):
+#     user_name = serializers.CharField(source="user.name", read_only=True)
+#     user_email = serializers.CharField(source="user.email", read_only=True)
+#     user_phone = serializers.CharField(source="user.phone", read_only=True)
+#     cancelled_date = serializers.SerializerMethodField()
+#     refund_date = serializers.SerializerMethodField()
+#     refund_amount = serializers.SerializerMethodField()
+#
+#     class Meta:
+#         model = Subs
+#         fields = [
+#             "user_name",
+#             "user_email",
+#             "user_phone",
+#             "cancelled_date",
+#             "refund_date",
+#             "refund_amount",
+#         ]
 
-    class Meta:
-        model = Subs
-        fields = [
-            "user_name",
-            "user_email",
-            "user_phone",
-            "cancelled_date",
-            "refund_date",
-            "refund_amount",
-        ]
-
-    # def get_cancelled_date(self, obj):
-    #     re
+# def get_cancelled_date(self, obj):
+#     re
 
 
 class AdminLoginSerializer(TokenObtainPairSerializer):
@@ -205,9 +205,7 @@ class AdminLoginSerializer(TokenObtainPairSerializer):
 
 
 class SubsCancelSerializer(TokenObtainPairSerializer):
-    user_name = serializers.CharField(source="user.name", read_only=True)
-    user_email = serializers.CharField(source="user.email", read_only=True)
-    user_phone = serializers.CharField(source="user.phone", read_only=True)
+    user = serializers.SerializerMethodField()
     cancelled_date = serializers.SerializerMethodField()
     cancelled_reason = serializers.SerializerMethodField()
     refund_date = serializers.SerializerMethodField()
@@ -218,15 +216,22 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
     class Meta:
         model = SubHistories
         fields = [
-            "user_name",
-            "user_email",
-            "user_phone",
+            "user",
             "cancelled_date",
             "cancelled_reason",
             "refund_date",
             "refund_amount",
             "get_expected_refund_amount",
         ]
+
+    def get_user(self, obj: SubHistories) -> dict:
+        if obj.user:
+            return {
+                "name": obj.user.name,
+                "email": obj.user.email,
+                "phone": obj.user.phone,
+            }
+        return {"name": None, "email": None, "phone": None}
 
     def get_cancelled_date(self, obj: SubHistories) -> str | None:
         """구독 취소 일자(환불 일자랑 다름)"""
@@ -366,9 +371,7 @@ class AdminCancelReasonSerializer(serializers.Serializer):
 
 class AdminTallySerializer(serializers.Serializer):
 
-    user_name = serializers.CharField(source="user.name", read_only=True)
-    user_email = serializers.CharField(source="user.email", read_only=True)
-    user_phone = serializers.CharField(source="user.phone", read_only=True)
+    user = serializers.SerializerMethodField()
     submitted_at = serializers.DateTimeField(format="%Y-%m-%d %H:%M:%S", read_only=True)
     form_name = serializers.CharField(read_only=True)
     form_data = serializers.JSONField(read_only=True)
@@ -378,13 +381,21 @@ class AdminTallySerializer(serializers.Serializer):
         model = Tally
         fields = [
             "submitted_at",
-            "user_name",
-            "user_email",
-            "user_phone",
+            "user",
             "complete",
             "form_name",
             "form_data",
         ]
+
+    def get_user(self, obj: Tally) -> dict:
+        """사용자 정보를 객체로 반환"""
+        if obj.user:
+            return {
+                "name": obj.user.name,
+                "email": obj.user.email,
+                "phone": obj.user.phone,
+            }
+        return {"name": None, "email": None, "phone": None}
 
 
 class AdminTallyCompleteSerializer(serializers.Serializer):
@@ -426,7 +437,7 @@ class AdminSalesSerializer(serializers.ModelSerializer):
             return "구독취소"  # 환불이 있는 경우에만 "구독취소"
         return "결제"  # 결제 내역은 항상 "결제"로 표시
 
-    def get_uesr(self, obj: Pays) -> dict:
+    def get_user(self, obj: Pays) -> dict:
         if obj.user:
             return {
                 "id": obj.user.id,
