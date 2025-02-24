@@ -14,8 +14,8 @@ class Pays(models.Model):
         ("REFUNDED", "Refunded"),
     ]
     id = models.AutoField(primary_key=True)
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    subs = models.ForeignKey(Subs, on_delete=models.CASCADE)
+    user = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True)
+    subs = models.ForeignKey(Subs, on_delete=models.SET_NULL, null=True)
     imp_uid = models.CharField(max_length=255, unique=True)
     merchant_uid = models.CharField(max_length=255, unique=True)
     amount = models.DecimalField(decimal_places=2, max_digits=10)

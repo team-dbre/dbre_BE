@@ -49,20 +49,20 @@ class ReviewCreateView(APIView):
         )
 
 
-@extend_schema(
-    tags=["review"],
-    responses={200: ReviewGetSerializer()},
-    request=ReviewGetSerializer,
-)
-class ReviewDetailView(APIView):
-    """
-    리뷰 상세 조회
-    """
-
-    permission_classes = [IsAdminUser]
-    serializer_class = ReviewGetSerializer
-
-    def get(self, request: Request, review_id: int) -> Response:
-        review = get_object_or_404(Review, id=review_id)
-        serializer = ReviewGetSerializer(review, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+# @extend_schema(
+#     tags=["review"],
+#     responses={200: ReviewGetSerializer()},
+#     request=ReviewGetSerializer,
+# )
+# class ReviewDetailView(APIView):
+#     """
+#     리뷰 상세 조회
+#     """
+#
+#     permission_classes = [IsAdminUser]
+#     serializer_class = ReviewGetSerializer
+#
+#     def get(self, request: Request, review_id: int) -> Response:
+#         review = get_object_or_404(Review, id=review_id)
+#         serializer = ReviewGetSerializer(review, context={"request": request})
+#         return Response(serializer.data, status=status.HTTP_200_OK)
