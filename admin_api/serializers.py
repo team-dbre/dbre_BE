@@ -462,3 +462,28 @@ class AdminPasswordChangeSerializer(serializers.Serializer):
             )
 
         return value
+
+
+class UserManagementSerializer(serializers.ModelSerializer):
+    is_subscribed = serializers.CharField()
+    marketing_consent = serializers.CharField()
+    start_date = serializers.DateTimeField()
+    end_date = serializers.DateTimeField()
+    latest_paid_at = serializers.DateTimeField()
+
+    class Meta:
+        model = CustomUser
+        fields = (
+            "id",
+            "name",
+            "email",
+            "phone",
+            "is_subscribed",
+            "sub_status",
+            "created_at",
+            "last_login",
+            "marketing_consent",
+            "start_date",
+            "latest_paid_at",
+            "end_date",
+        )
