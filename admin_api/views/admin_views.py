@@ -27,7 +27,6 @@ from admin_api.serializers import (
 )
 from subscription.models import SubHistories, Subs
 from tally.models import Tally
-from user.models import CustomUser
 from user.utils import measure_time
 
 
