@@ -1,7 +1,7 @@
 import datetime
 import decimal
 
-from typing import Union
+from typing import Optional, Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
@@ -206,6 +206,7 @@ class AdminLoginSerializer(TokenObtainPairSerializer):
 
 class SubsCancelSerializer(TokenObtainPairSerializer):
     user = serializers.SerializerMethodField()
+    subs_id = serializers.SerializerMethodField()
     cancelled_date = serializers.SerializerMethodField()
     cancelled_reason = serializers.SerializerMethodField()
     refund_date = serializers.SerializerMethodField()
@@ -217,6 +218,7 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
         model = SubHistories
         fields = [
             "user",
+            "subs_id",
             "cancelled_date",
             "cancelled_reason",
             "refund_date",
@@ -232,6 +234,9 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
                 "phone": obj.user.phone,
             }
         return {"name": None, "email": None, "phone": None}
+
+    def get_subs_id(self, obj: SubHistories) -> Optional[int]:
+        return obj.sub.id if obj.sub else None
 
     def get_cancelled_date(self, obj: SubHistories) -> str | None:
         """구독 취소 일자(환불 일자랑 다름)"""
@@ -512,3 +517,49 @@ class UserManagementResponseSerializer(serializers.Serializer):
     previous = serializers.URLField(allow_null=True)
     statistics = StatisticsSerializer()
     users = UserManagementSerializer(many=True)
+
+
+class AdminRefundInfoSerializer(serializers.Serializer):
+    """환불 승인 전 결제 정보 직렬화"""
+
+    user_name = serializers.CharField(source="user.name")
+    paid_at = serializers.SerializerMethodField()
+    paid_amount = serializers.SerializerMethodField()
+    refund_amount = serializers.SerializerMethodField()
+
+    def get_paid_at(self, obj: Subs) -> str:
+        """결제 일자"""
+        payment = (
+            Pays.objects.filter(user=obj.user, subs=obj, status="PAID")
+            .order_by("-paid_at")
+            .first()
+        )
+        return payment.paid_at.strftime("%Y/%m/%d %H:%M:%S") if payment else "정보 없음"
+
+    def get_paid_amount(self, obj: Subs) -> str:
+        """결제 금액"""
+        payment = (
+            Pays.objects.filter(user=obj.user, subs=obj, status="PAID")
+            .order_by("-paid_at")
+            .first()
+        )
+        return f"{int(payment.amount):,} 원" if payment else "0 원"
+
+    def get_refund_amount(self, obj: Subs) -> str:
+        """환불 예정 금액"""
+        payment = (
+            Pays.objects.filter(user=obj.user, subs=obj, status="PAID")
+            .order_by("-paid_at")
+            .first()
+        )
+        if not payment:
+            return "0 원"
+
+        refund_service = RefundService(
+            user=obj.user,
+            subscription=obj,
+            cancel_reason="환불 예정 금액 계산",
+            other_reason="",
+        )
+        refund_amount = refund_service.calculate_refund_amount(payment)
+        return f"{int(refund_amount):,} 원" if refund_amount else "0 원"
