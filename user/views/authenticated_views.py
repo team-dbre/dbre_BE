@@ -233,13 +233,17 @@ class UserView(APIView):
                 user.name = serializer.validated_data["name"]
 
             if "image" in serializer.validated_data:
-                new_img_url = self._upload_to_ncp(
-                    serializer.validated_data["image"], "profile-images"
-                )
-                user.img_url = new_img_url
+                if serializer.validated_data["image"] is not None:
+                    # 새 이미지가 제공된 경우에만 업로드 및 업데이트
+                    new_img_url = self._upload_to_ncp(
+                        serializer.validated_data["image"], "profile-images"
+                    )
+                    user.img_url = new_img_url
 
-                if old_img_url and self._is_ncp_image(old_img_url):
-                    self._delete_from_ncp(old_img_url)
+                    # 기존 이미지가 있다면 삭제
+                    if old_img_url and self._is_ncp_image(old_img_url):
+                        self._delete_from_ncp(old_img_url)
+                # image가 None인 경우 아무 작업도 하지 않음 (기존 이미지 유지)
 
             user.save()
 

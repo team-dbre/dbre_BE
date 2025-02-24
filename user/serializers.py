@@ -360,8 +360,8 @@ class PasswordChangeResponseSerializer(serializers.Serializer):
 
 
 class UserUpdateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=50, required=False)
-    image = serializers.ImageField(required=False)
+    name = serializers.CharField(max_length=50, required=False, allow_null=True)
+    image = serializers.ImageField(required=False, allow_null=True)
 
 
 class UserUpdateResponseSerializer(serializers.Serializer):

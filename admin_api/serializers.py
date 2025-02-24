@@ -262,7 +262,6 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
 
     def get_cancelled_reason(self, obj: SubHistories) -> str | None:
         """취소 사유"""
-
         cancel = (
             SubHistories.objects.filter(sub=obj.sub, status="refund_pending")
             .order_by("-change_date")
@@ -270,12 +269,16 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
         )
         if not cancel:
             return "UnKnown"
-        reason = cancel.cancelled_reason if cancel.cancelled_reason else "UnKnown"
-        return (
-            f"기타 사유: {cancel.other_reason}"
-            if reason == "other" and cancel.other_reason
-            else reason
-        )
+
+        reason = cancel.cancelled_reason
+        if isinstance(reason, str):
+            reason = reason.strip("[]'")  # Remove brackets and quotes if present
+        elif isinstance(reason, list):
+            reason = reason[0] if reason else "UnKnown"
+
+        if reason.lower() == "other" and cancel.other_reason:  # type: ignore
+            return f"기타 : {cancel.other_reason}"
+        return reason or "UnKnown"
 
     def get_refund_date(self, obj: SubHistories) -> str | None:
         """환불 일자"""
