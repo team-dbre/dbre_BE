@@ -136,7 +136,7 @@ class DeleteUserMangementView(APIView):
     @extend_schema(
         tags=["admin"],
         summary="Admin page 탈퇴 요청 회원 목록",
-        description="is_active: True(탈퇴 처리 전), False(탈퇴 처리 후)",
+        description="is_deletion_confirmed로 관리자가 탈퇴 요청을 승낙했는지 거부했는지 확인해야합니다.",
         responses={200: DeletedUserSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
