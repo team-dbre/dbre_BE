@@ -5,6 +5,7 @@ from datetime import timedelta
 from typing import Any, Dict
 
 from django.utils.timezone import now
+from portone_server_sdk._generated.common.card import Card
 from rest_framework import serializers
 
 from payment.models import BillingKey
@@ -363,3 +364,12 @@ class BillingKeyIssueSerializer(serializers.Serializer):
     password_two_digits = serializers.CharField(
         max_length=2, allow_null=True, required=False, help_text="비밀번호 앞 2자리"
     )
+
+
+class GetCardSerializer(serializers.ModelSerializer):
+    card_name = serializers.CharField(read_only=True)
+    card_number = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = BillingKey
+        fields = ["card_name", "card_number"]
