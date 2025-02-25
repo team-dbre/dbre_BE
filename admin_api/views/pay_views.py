@@ -11,7 +11,7 @@ from admin_api.serializers import AdminSalesSerializer
 from payment.models import Pays
 
 
-@extend_schema(tags=["admin"])
+@extend_schema(tags=["admin"], summary="관리자 결제 및 환불 내역 조회")
 class AdminSalesPayView(APIView):
     permission_classes = [IsAdminUser]
     serializer_class = AdminSalesSerializer
