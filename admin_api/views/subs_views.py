@@ -28,7 +28,7 @@ from subscription.models import SubHistories, Subs
 logger = logging.getLogger(__name__)
 
 
-@extend_schema(tags=["admin"])
+@extend_schema(tags=["admin"], summary="구독 현황 관리")
 class SubscriptionListView(APIView):
     """구독 현황 관리"""
 
@@ -110,6 +110,7 @@ class SubscriptionListView(APIView):
 
 @extend_schema(
     tags=["admin"],
+    summary="특정 사용자 구독 변경 이력 조회",
     request=SubscriptionHistorySerializer,
     parameters=[
         OpenApiParameter(
@@ -140,7 +141,7 @@ class SubscriptionHistoryListView(APIView):
         return Response({"history": serializer.data})
 
 
-@extend_schema(tags=["admin"])
+@extend_schema(tags=["admin"], summary="구독 취소 및 환불 리스트")
 class AdminRefundPendingListView(APIView):
 
     permission_classes = [IsAdminUser]
@@ -182,7 +183,11 @@ class AdminRefundPendingListView(APIView):
         )
 
 
-@extend_schema(tags=["admin"], request=AdminRefundSerializer)
+@extend_schema(
+    tags=["admin"],
+    request=AdminRefundSerializer,
+    summary="관리자가 환불 금액 입력 후 승인",
+)
 class AdminRefundView(APIView):
     permission_classes = [IsAdminUser]
     serializer_class = AdminRefundSerializer
@@ -280,7 +285,11 @@ class AdminCancelReasonView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-@extend_schema(tags=["admin"], responses=AdminRefundInfoSerializer)
+@extend_schema(
+    tags=["admin"],
+    responses=AdminRefundInfoSerializer,
+    summary="환불 승인 전 결제 정보 확인",
+)
 class AdminRefundInfoView(APIView):
     permission_classes = [IsAdminUser]
     serializer_class = AdminRefundInfoSerializer

@@ -37,7 +37,9 @@ class PlanListCreateView(APIView):
         return [AllowAny()]
 
     @extend_schema(
-        operation_id="get_all_plans", responses={200: PlanSerializer(many=True)}
+        operation_id="get_all_plans",
+        responses={200: PlanSerializer(many=True)},
+        summary="구독 플랜 목록 조회",
     )
     def get(self, request: PlanSerializer) -> Response:
         """구독 플랜 목록 조회"""
@@ -49,6 +51,7 @@ class PlanListCreateView(APIView):
         request=PlanSerializer,
         responses={201: PlanSerializer},
         description="새로운 구독 플랜을 생성합니다.",
+        summary="구독 플랜 생성",
     )
     def post(self, request: PlanSerializer) -> Response:
         """구독 플랜 생성"""
@@ -72,6 +75,7 @@ class PlanDetailView(APIView):
         operation_id="get_plan_by_id",
         request=PlanSerializer,
         responses={200: PlanSerializer(many=True)},
+        summary="구독 플랜 개별 조회",
     )
     def get(self, request: PlanSerializer, plan_id: int) -> Response:
         """구독 플랜 개별 조회"""
@@ -79,7 +83,11 @@ class PlanDetailView(APIView):
         serializer = PlanSerializer(plan)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
+    @extend_schema(
+        request=PlanSerializer,
+        responses={200: PlanSerializer(many=True)},
+        summary="구독 플랜 수정",
+    )
     def patch(self, request: PlanSerializer, plan_id: int) -> Response:
         """구독 플랜 수정"""
         plan = get_object_or_404(Plans, id=plan_id)
@@ -89,7 +97,11 @@ class PlanDetailView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
+    @extend_schema(
+        request=PlanSerializer,
+        responses={200: PlanSerializer(many=True)},
+        summary="구독 플랜 비활성화",
+    )
     def delete(self, request: PlanSerializer, plan_id: int) -> Response:
         """구독 플랜 비활성화 처리"""
         plan = get_object_or_404(Plans, id=plan_id)
@@ -109,7 +121,11 @@ class PlanActivateView(APIView):
     permission_classes = [IsAdminUser]
     serializer_class = PlanSerializer
 
-    @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
+    @extend_schema(
+        request=PlanSerializer,
+        responses={200: PlanSerializer(many=True)},
+        summary="구독 플랜 활성화",
+    )
     def post(self, request: PlanSerializer, plan_id: int) -> Response:
         """비활성화된 플랜 활성화"""
         plan = get_object_or_404(Plans, id=plan_id)
@@ -129,7 +145,11 @@ class PlanDeleteView(APIView):
 
     permission_classes = [IsAdminUser]
 
-    @extend_schema(request=PlanSerializer, responses={200: PlanSerializer(many=True)})
+    @extend_schema(
+        request=PlanSerializer,
+        responses={200: PlanSerializer(many=True)},
+        summary="구독 플랜 삭제",
+    )
     def delete(self, request: PlanSerializer, plan_id: int) -> Response:
         plan = get_object_or_404(Plans, id=plan_id)
         plan.delete()

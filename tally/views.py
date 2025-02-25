@@ -37,7 +37,7 @@ def format_phone_number(phone: str) -> str:
     return phone
 
 
-@extend_schema(tags=["tally"])
+@extend_schema(tags=["tally"], summary="탈리 웹훅")
 @method_decorator(csrf_exempt, name="dispatch")
 class TallyWebhookAPIView(APIView):
 

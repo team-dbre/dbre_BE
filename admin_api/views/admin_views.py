@@ -41,7 +41,6 @@ from user.models import CustomUser
 from user.utils import measure_time
 
 
-@extend_schema(tags=["admin"])
 class DashboardView(APIView):
     """
     대시 보드
@@ -50,6 +49,7 @@ class DashboardView(APIView):
     permission_classes = [IsAdminUser]
     serializer_class = DashboardSerializer
 
+    @extend_schema(tags=["admin"], summary="대시보드")
     def get(self, request: Request) -> Response:
         """작업 요청 현황"""
         # 오늘 신규 요청
