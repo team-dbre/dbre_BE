@@ -146,8 +146,8 @@ class DeleteUserMangementView(APIView):
         responses={200: DeletedUserSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
-        # Subquery for withdrawal reason
-        reason_subquery = WithdrawalReason.objects.filter(user=OuterRef("pk")).values(
+        # Subquery for the latest withdrawal reason
+        reason_subquery = WithdrawalReason.objects.filter(user=OuterRef("pk")).order_by('-created_at').values(
             "reason"
         )[:1]
 
@@ -239,9 +239,9 @@ class UserRecoveryView(APIView):
         try:
             user = CustomUser.objects.get(id=user_id, deleted_at__isnull=False)
 
-            if not user.is_active:
+            if user.is_active:
                 return Response(
-                    {"error": "아직 탈퇴 처리되지 않은 회원입니다."},
+                    {"error": "아직 탈퇴 처리를 요청하지 않은 회원입니다."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
