@@ -1,9 +1,8 @@
 from django.db.models import Case, CharField, Count, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from rest_framework import serializers, status
+from rest_framework import status
 
 # from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
