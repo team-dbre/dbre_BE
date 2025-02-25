@@ -65,6 +65,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
     deleted_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False, db_index=True)
+    is_deletion_confirmed = models.BooleanField(default=False)
 
     objects = CustomUserManager()
 
