@@ -147,9 +147,11 @@ class DeleteUserMangementView(APIView):
     )
     def get(self, request: Request) -> Response:
         # Subquery for the latest withdrawal reason
-        reason_subquery = WithdrawalReason.objects.filter(user=OuterRef("pk")).order_by('-created_at').values(
-            "reason"
-        )[:1]
+        reason_subquery = (
+            WithdrawalReason.objects.filter(user=OuterRef("pk"))
+            .order_by("-created_at")
+            .values("reason")[:1]
+        )
 
         deleted_users = (
             CustomUser.objects.filter(deleted_at__isnull=False)
