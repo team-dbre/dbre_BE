@@ -478,6 +478,7 @@ class AdminSalesSerializer(serializers.ModelSerializer):
 
 
 class AdminPasswordChangeSerializer(serializers.Serializer):
+    user_id = serializers.CharField(required=True)
     new_password = serializers.CharField(write_only=True)
 
     def validate_new_password(self, value: str) -> str:
@@ -501,6 +502,15 @@ class AdminPasswordChangeSerializer(serializers.Serializer):
                 "비밀번호는 최소 1개의 특수문자를 포함해야 합니다."
             )
 
+        return value
+
+    def validate_user_id(self, value: str) -> str:
+        try:
+            user = CustomUser.objects.get(id=value, is_staff=True)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError(
+                "해당 ID의 관리자 계정이 존재하지 않습니다."
+            )
         return value
 
 
