@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -262,7 +263,6 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
 
     def get_cancelled_reason(self, obj: SubHistories) -> str | None:
         """취소 사유"""
-
         cancel = (
             SubHistories.objects.filter(sub=obj.sub, status="refund_pending")
             .order_by("-change_date")
@@ -270,12 +270,16 @@ class SubsCancelSerializer(TokenObtainPairSerializer):
         )
         if not cancel:
             return "UnKnown"
-        reason = cancel.cancelled_reason if cancel.cancelled_reason else "UnKnown"
-        return (
-            f"기타 사유: {cancel.other_reason}"
-            if reason == "other" and cancel.other_reason
-            else reason
-        )
+
+        reason = cancel.cancelled_reason
+        if isinstance(reason, str):
+            reason = reason.strip("[]'")  # Remove brackets and quotes if present
+        elif isinstance(reason, list):
+            reason = reason[0] if reason else "UnKnown"
+
+        if reason.lower() == "other" and cancel.other_reason:  # type: ignore
+            return f"기타 : {cancel.other_reason}"
+        return reason or "UnKnown"
 
     def get_refund_date(self, obj: SubHistories) -> str | None:
         """환불 일자"""
@@ -586,7 +590,21 @@ class AdminRefundInfoSerializer(serializers.Serializer):
 class DeletedUserSerializer(serializers.ModelSerializer):
     user = UserInfoSerializer(source="*")
     reason = serializers.CharField()
+    is_active = serializers.BooleanField()
 
     class Meta:
         model = CustomUser
-        fields = ("id", "deleted_at", "user", "reason")
+        fields = ("id", "deleted_at", "user", "reason", "is_active")
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    user = UserInfoSerializer(source="*")
+    classification = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ["id", "classification", "user", "created_at"]
+
+    @extend_schema_field(serializers.CharField())
+    def get_classification(self, obj: CustomUser) -> str:
+        return "Master" if obj.is_superuser else "Admin"

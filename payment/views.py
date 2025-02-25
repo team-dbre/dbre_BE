@@ -185,7 +185,7 @@ class UpdateBillingKeyView(APIView):
             if not scheduled_payments:
                 logger.info(f"기존 빌링키에 예약된 결제가 없음 빌링키만 업데이트")
                 billing_key_obj.billing_key = new_billing_key
-                billing_key_obj.save()
+                update_billing_key_info(billing_key_obj, new_billing_key)
 
                 serializer = BillingKeySerializer(billing_key_obj)
                 return Response(serializer.data, status=status.HTTP_200_OK)
