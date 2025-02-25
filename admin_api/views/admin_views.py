@@ -22,6 +22,7 @@ from admin_api.serializers import (
     AdminPasswordChangeSerializer,
     AdminTallyCompleteSerializer,
     AdminTallySerializer,
+    AdminUserListSerializer,
     AdminUserSerializer,
     DashboardSerializer,
 )
@@ -186,6 +187,29 @@ class AdminUserView(APIView):
                 status=status.HTTP_200_OK,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @extend_schema(
+        tags=["admin"],
+        summary="관리자 계정 목록을 조회",
+        description="staff(master, admin) 전체 조회(master 만 가능함)",
+        responses={
+            200: OpenApiResponse(
+                response=AdminUserListSerializer(many=True),
+                description="관리자 계정 목록 조회 성공",
+            ),
+            403: OpenApiResponse(description="권한 없음"),
+        },
+    )
+    def get(self, request: Request) -> Response:
+        if not request.user.is_superuser:
+            return Response(
+                {"message": "슈퍼유저만 관리자 계정 목록을 조회할 수 있습니다."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        admin_users = CustomUser.objects.filter(is_staff=True)
+        serializer = AdminUserListSerializer(admin_users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class AdminLoginView(TokenObtainPairView):

@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ObjectDoesNotExist
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -593,3 +594,16 @@ class DeletedUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ("id", "deleted_at", "user", "reason")
+
+
+class AdminUserListSerializer(serializers.ModelSerializer):
+    user = UserInfoSerializer(source="*")
+    classification = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CustomUser
+        fields = ["id", "classification", "user", "created_at"]
+
+    @extend_schema_field(serializers.CharField())
+    def get_classification(self, obj: CustomUser) -> str:
+        return "Master" if obj.is_superuser else "Admin"
