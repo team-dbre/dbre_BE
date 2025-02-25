@@ -9,6 +9,7 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from admin_api.models import AdminLoginLog
 from payment.models import Pays
 from payment.services.payment_service import RefundService
 from subscription.models import SubHistories, Subs
@@ -640,3 +641,9 @@ class UserRecoveryResponseSerializer(serializers.ModelSerializer):
             "is_deletion_confirmed",
             "deleted_at",
         ]
+
+
+class AdminLoginLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AdminLoginLog
+        fields = "__all__"

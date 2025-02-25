@@ -4,7 +4,7 @@ from typing import Any, cast
 from django.conf import settings
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
-from django.db.models import Sum
+from django.db.models import QuerySet, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
@@ -14,7 +14,7 @@ from drf_spectacular.utils import (
     OpenApiResponse,
     extend_schema,
 )
-from rest_framework import serializers, status
+from rest_framework import generics, serializers, status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.request import Request
@@ -24,6 +24,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from admin_api.models import AdminLoginLog
 from admin_api.serializers import (
+    AdminLoginLogSerializer,
     AdminLoginSerializer,
     AdminPasswordChangeSerializer,
     AdminTallyCompleteSerializer,
@@ -401,3 +402,12 @@ class AdminTallyCompleteView(APIView):
         tally.complete = True
         tally.save(update_fields=["complete"])
         return Response({"complete": True}, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["admin"])
+class AdminLoginLogListView(generics.ListAPIView):
+    serializer_class = AdminLoginLogSerializer
+    permission_classes = [IsAdminUser]
+
+    def get_queryset(self) -> QuerySet[AdminLoginLog]:
+        return AdminLoginLog.objects.all().order_by("-login_datetime")
