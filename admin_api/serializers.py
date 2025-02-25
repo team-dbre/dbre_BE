@@ -590,11 +590,11 @@ class AdminRefundInfoSerializer(serializers.Serializer):
 class DeletedUserSerializer(serializers.ModelSerializer):
     user = UserInfoSerializer(source="*")
     reason = serializers.CharField()
-    is_active = serializers.BooleanField()
+    is_deletion_confirmed = serializers.BooleanField()
 
     class Meta:
         model = CustomUser
-        fields = ("id", "deleted_at", "user", "reason", "is_active")
+        fields = ("id", "deleted_at", "user", "reason", "is_deletion_confirmed")
 
 
 class AdminUserListSerializer(serializers.ModelSerializer):
@@ -608,3 +608,18 @@ class AdminUserListSerializer(serializers.ModelSerializer):
     @extend_schema_field(serializers.CharField())
     def get_classification(self, obj: CustomUser) -> str:
         return "Master" if obj.is_superuser else "Admin"
+
+
+# 요청을 위한 시리얼라이저
+class ConfirmUserDeletionRequestSerializer(serializers.Serializer):
+    user_id = serializers.CharField(required=True)
+
+
+# 응답을 위한 시리얼라이저
+class ConfirmUserDeletionResponseSerializer(serializers.Serializer):
+    message = serializers.CharField()
+
+
+# 에러 응답을 위한 시리얼라이저
+class ErrorResponseSerializer(serializers.Serializer):
+    error = serializers.CharField()

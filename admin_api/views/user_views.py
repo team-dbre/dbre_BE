@@ -1,16 +1,21 @@
 from django.db.models import Case, CharField, Count, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import OpenApiParameter, extend_schema
-from rest_framework.pagination import PageNumberPagination
+from drf_spectacular.utils import extend_schema
+from rest_framework import serializers, status
+
+# from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from admin_api.serializers import (
+    ConfirmUserDeletionRequestSerializer,
+    ConfirmUserDeletionResponseSerializer,
     DeletedUserSerializer,
+    ErrorResponseSerializer,
     UserManagementResponseSerializer,
     UserManagementSerializer,
 )
@@ -136,7 +141,7 @@ class DeleteUserMangementView(APIView):
     @extend_schema(
         tags=["admin"],
         summary="Admin page 탈퇴 요청 회원 목록",
-        description="is_active: True(탈퇴 처리 전), False(탈퇴 처리 후)",
+        description="is_deletion_confirmed로 관리자가 탈퇴 요청을 승낙했는지 거부했는지 확인해야합니다.",
         responses={200: DeletedUserSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
@@ -146,12 +151,61 @@ class DeleteUserMangementView(APIView):
         )[:1]
 
         deleted_users = (
-            CustomUser.objects.filter(deleted_at__isnull=False)  # 변경된 부분
+            CustomUser.objects.filter(deleted_at__isnull=False)
             .annotate(reason=Subquery(reason_subquery))
             .values(
-                "id", "deleted_at", "name", "email", "phone", "reason", "is_active"
-            )  # is_active 추가
+                "id",
+                "deleted_at",
+                "name",
+                "email",
+                "phone",
+                "reason",
+                "is_deletion_confirmed",
+            )
         )
 
         serializer = DeletedUserSerializer(deleted_users, many=True)
         return Response(serializer.data)
+
+    @extend_schema(
+        tags=["admin"],
+        summary="Admin page 탈퇴 요청 승인",
+        description="특정 유저의 탈퇴 요청을 승인합니다. is_deletion_confirmed를 True로 변경합니다.",
+        request=ConfirmUserDeletionRequestSerializer,
+        responses={
+            200: ConfirmUserDeletionResponseSerializer,
+            400: ErrorResponseSerializer,
+            404: ErrorResponseSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = ConfirmUserDeletionRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                ErrorResponseSerializer({"error": serializer.errors}).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_id = serializer.validated_data["user_id"]
+
+        try:
+            user = CustomUser.objects.get(id=user_id, deleted_at__isnull=False)
+            if user.is_deletion_confirmed:
+                return Response(
+                    {"message": "이미 탈퇴 처리된 회원입니다."},
+                    status=status.HTTP_200_OK,
+                )
+
+            user.is_deletion_confirmed = True
+            user.save()
+            return Response(
+                {"message": f"회원 {user_id} 탈퇴 처리를 성공적으로 마쳤습니다."},
+                status=status.HTTP_200_OK,
+            )
+        except CustomUser.DoesNotExist:
+            return Response(
+                {
+                    "error": f"회원 {user_id} 을 찾을 수 없거나 탈퇴를 요청한 회원이 아닙니다."
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
