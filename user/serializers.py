@@ -237,12 +237,12 @@ class UserProfileSerializer(serializers.ModelSerializer):
                         else None
                     )
 
-                    card_name: Optional[str] = None
-                    card_number: Optional[str] = None
+                    # card_name: Optional[str] = None
+                    # card_number: Optional[str] = None
                     billingkey = BillingKey.objects.filter(user=obj).first()
-                    if billingkey is not None:
-                        card_name = billingkey.card_name
-                        card_number = billingkey.card_number
+                    # if billingkey is not None:
+                    #     card_name = billingkey.card_name
+                    #     card_number = billingkey.card_number
 
                     payment_amount: Optional[int] = None
                     plan = Plans.objects.filter(id=subscription.plan_id).first()
@@ -257,8 +257,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
                             if subscription.remaining_bill_date
                             else None
                         ),
-                        "card_name": card_name,
-                        "card_number": card_number,
+                        # "card_name": card_name,
+                        # "card_number": card_number,
                         "next_bill_date": next_bill_date,
                         "payment_amount": payment_amount,
                     }
