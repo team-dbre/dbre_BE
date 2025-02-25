@@ -18,7 +18,7 @@ from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
     extend_schema,
-    extend_schema_view,
+    extend_schema_view, inline_serializer,
 )
 from rest_framework import serializers, status
 from rest_framework.generics import CreateAPIView, GenericAPIView
@@ -616,7 +616,13 @@ class UserPhoneCheckView(APIView):
         summary="휴대폰 번호로 계정 확인(계정찾기)",
         description="휴대폰 번호로 가입된 계정이 있는지 확인하고 가입 방식을 반환합니다.",
         request=PhoneCheckRequestSerializer,
-        responses={200: PhoneCheckResponseSerializer, 403: serializers.Serializer},
+        responses={
+            200: PhoneCheckResponseSerializer,
+            403: inline_serializer(
+                name='UserPhoneCheckErrorSerializer',
+                fields={'message': serializers.CharField()}
+            )
+        },
     )
     def post(self, request: Request) -> Response:
         serializer = PhoneCheckRequestSerializer(data=request.data)
@@ -662,7 +668,13 @@ class PasswordResetView(APIView):
         summary="비밀번호 초기화 요청(메일 발송)",
         description="이메일을 입력받아 임시 비밀번호를 생성하고 메일로 발송합니다.",
         request=PasswordResetRequestSerializer,
-        responses={200: PasswordResetResponseSerializer, 403: serializers.Serializer},
+        responses={
+            200: PasswordResetResponseSerializer,
+            403: inline_serializer(
+                name='PasswordResetErrorSerializer',
+                fields={'message': serializers.CharField()}
+            )
+        },
     )
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(data=request.data)
