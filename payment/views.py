@@ -1,8 +1,10 @@
 import json
 import logging
+import re
 
 from typing import Any
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db import transaction
 from django.http import HttpRequest, HttpResponse
@@ -10,6 +12,15 @@ from django.shortcuts import render
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from drf_spectacular.utils import extend_schema
+from portone_server_sdk._generated.common.card_credential import CardCredential
+from portone_server_sdk._generated.common.customer_input import CustomerInput
+from portone_server_sdk._generated.common.customer_name_input import CustomerNameInput
+from portone_server_sdk._generated.payment.billing_key.instant_billing_key_payment_method_input import (
+    InstantBillingKeyPaymentMethodInput,
+)
+from portone_server_sdk._generated.payment.billing_key.instant_billing_key_payment_method_input_card import (
+    InstantBillingKeyPaymentMethodInputCard,
+)
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
@@ -20,7 +31,9 @@ from payment.models import BillingKey
 from payment.services.web_hook_service import verify_signature
 from subscription.models import Subs
 
+from . import portone_client2
 from .serializers import (
+    BillingKeyIssueSerializer,
     BillingKeySerializer,
     PauseSubscriptionSerializer,
     RefundResponseSerializer,
@@ -185,7 +198,7 @@ class UpdateBillingKeyView(APIView):
             if not scheduled_payments:
                 logger.info(f"기존 빌링키에 예약된 결제가 없음 빌링키만 업데이트")
                 billing_key_obj.billing_key = new_billing_key
-                billing_key_obj.save()
+                update_billing_key_info(billing_key_obj, new_billing_key)
 
                 serializer = BillingKeySerializer(billing_key_obj)
                 return Response(serializer.data, status=status.HTTP_200_OK)
@@ -279,6 +292,7 @@ class RequestSubscriptionPaymentView(APIView):
 # @extend_schema(tags=["payment"])
 # @method_decorator(csrf_exempt, name="dispatch")
 # class PortOneWebhookView(APIView):
+#     ser
 #
 #     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
 #         try:
@@ -286,47 +300,36 @@ class RequestSubscriptionPaymentView(APIView):
 #             data = json.loads(body)
 #             signature = request.headers.get("x-portone-signature")
 #
-#             if not verify_signature(request, signature):
+#             if not signature or not verify_signature(request):
 #                 logger.error("Webhook signature verification failed")
 #                 return Response(
 #                     {"message": "Signature verification failed"},
 #                     status=status.HTTP_400_BAD_REQUEST,
 #                 )
 #
-#             payment_id = data.get("paymentId")
-#             status_received = data.get("status")
-#             amount_received = data.get("amount")
+#             # 빌링키 발급 Webhook 처리
+#             billing_key = data.get("billingKey")
+#             card_company = data.get("card", {}).get("cardCompany")
+#             card_number_masked = data.get("card", {}).get("cardNumberMasked")
 #
-#             if not payment_id:
-#                 logger.error("Missing paymentId in webhook data")
+#             if billing_key:
+#                 logger.info(f"Billing Key issued for customer {billing_key}")
+#                 logger.info(f"Card Info: {card_company} - {card_number_masked}")
+#
+#                 #  DB에 카드 정보 및 빌링키 저장
+#                 BillingKey.objects.create(
+#                     billing_key=billing_key,
+#                     card_name=card_company,
+#                     card_number=card_number_masked,
+#                 )
+#
 #                 return Response(
-#                     {"message": "Bad Request - Missing paymentId"},
-#                     status=status.HTTP_400_BAD_REQUEST,
+#                     {"message": "Billing Key processed successfully"},
+#                     status=status.HTTP_200_OK,
 #                 )
-#
-#             try:
-#                 pay_record = Pays.objects.get(imp_uid=payment_id)
-#             except Pays.DoesNotExist:
-#                 logger.error(f"Payment with imp_uid {payment_id} not found")
-#                 return Response(
-#                     {"message": "Payment not found"}, status=status.HTTP_404_NOT_FOUND
-#                 )
-#
-#             if pay_record.amount != amount_received:
-#                 logger.warning(
-#                     f"Payment amount mismatch: Expected {pay_record.amount}, Received {amount_received}"
-#                 )
-#                 return Response(
-#                     {"message": "Amount mismatch"}, status=status.HTTP_400_BAD_REQUEST
-#                 )
-#
-#             # 결제 상태 업데이트
-#             pay_record.status = status_received.upper()
-#             pay_record.save()
-#             logger.info(f"Payment {payment_id} updated successfully.")
 #
 #             return Response(
-#                 {"message": "Webhook processed successfully"}, status=status.HTTP_200_OK
+#                 {"message": "No billing key found"}, status=status.HTTP_400_BAD_REQUEST
 #             )
 #
 #         except json.JSONDecodeError:
@@ -340,61 +343,6 @@ class RequestSubscriptionPaymentView(APIView):
 #                 {"message": "Internal Server Error"},
 #                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
 #             )
-
-
-@extend_schema(tags=["payment"])
-@method_decorator(csrf_exempt, name="dispatch")
-class PortOneWebhookView(APIView):
-
-    def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-        try:
-            body = request.body.decode("utf-8")
-            data = json.loads(body)
-            signature = request.headers.get("x-portone-signature")
-
-            if not signature or not verify_signature(request):
-                logger.error("Webhook signature verification failed")
-                return Response(
-                    {"message": "Signature verification failed"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            # 빌링키 발급 Webhook 처리
-            billing_key = data.get("billingKey")
-            card_company = data.get("card", {}).get("cardCompany")
-            card_number_masked = data.get("card", {}).get("cardNumberMasked")
-
-            if billing_key:
-                logger.info(f"Billing Key issued for customer {billing_key}")
-                logger.info(f"Card Info: {card_company} - {card_number_masked}")
-
-                #  DB에 카드 정보 및 빌링키 저장
-                BillingKey.objects.create(
-                    billing_key=billing_key,
-                    card_name=card_company,
-                    card_number=card_number_masked,
-                )
-
-                return Response(
-                    {"message": "Billing Key processed successfully"},
-                    status=status.HTTP_200_OK,
-                )
-
-            return Response(
-                {"message": "No billing key found"}, status=status.HTTP_400_BAD_REQUEST
-            )
-
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON received in webhook")
-            return Response(
-                {"message": "Invalid JSON"}, status=status.HTTP_400_BAD_REQUEST
-            )
-        except Exception as e:
-            logger.exception(f"Unexpected error in webhook: {e}")
-            return Response(
-                {"message": "Internal Server Error"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
 
 
 @extend_schema(tags=["payment"])
@@ -520,3 +468,89 @@ class ResumeSubscriptionView(APIView):
                 else status.HTTP_400_BAD_REQUEST
             ),
         )
+
+
+@extend_schema(tags=["payment"], request=BillingKeyIssueSerializer)
+class BillingKeyIssueView(APIView):
+    """빌링키 발급 API"""
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = BillingKeyIssueSerializer
+
+    def post(self, request: Request) -> Response:
+        serializer = BillingKeyIssueSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        validated_data = serializer.validated_data
+        user = request.user  # 현재 로그인된 사용자
+
+        # 카드 인증 정보 객체 생성
+        card_credential = CardCredential(
+            number=validated_data["number"],
+            expiry_year=validated_data["expiry_year"],
+            expiry_month=validated_data["expiry_month"],
+            birth_or_business_registration_number=validated_data.get(
+                "birth_or_business_registration_number"
+            ),
+            password_two_digits=validated_data.get("password_two_digits"),
+        )
+
+        # 카드 결제 수단 객체 생성
+        card_payment_method = InstantBillingKeyPaymentMethodInputCard(
+            credential=card_credential
+        )
+
+        # 결제 수단 객체 생성
+        payment_method = InstantBillingKeyPaymentMethodInput(card=card_payment_method)
+
+        # Billing Key 발급 요청
+        try:
+            billing_key_response = portone_client2.billing_key.issue_billing_key(
+                method=payment_method,
+                channel_key=settings.PORTONE_CHANNEL_KEY,
+                customer=CustomerInput(
+                    id=str(user.id),
+                    name=CustomerNameInput(full=user.name),
+                    email=user.email,
+                    phone_number=re.sub(r"\D", "", user.phone),
+                ),
+                bypass={"pg": "kpn", "method": "card"},
+            )
+            masked_card_number = mask_card_number(validated_data["number"])
+
+            # Billing Key 저장 (카드 정보 업데이트 포함)
+            billing_key_obj, created = BillingKey.objects.update_or_create(
+                user=user,
+                defaults={
+                    "billing_key": billing_key_response.billing_key_info.billing_key,
+                },
+            )
+            update_billing_key_info(billing_key_obj, billing_key_obj.billing_key)
+            billing_key_obj.card_number = masked_card_number
+            billing_key_obj.save(update_fields=["card_number"])
+
+            # 카드 정보 업데이트
+
+            return Response(
+                {"message": "Billing Key 발급 성공"}, status=status.HTTP_201_CREATED
+            )
+
+        except Exception as e:
+            logger.error(f"Billing Key 발급 실패: {e}")
+            return Response(
+                {"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+def mask_card_number(card_number: str) -> str:
+    """
+    카드 번호 마스킹
+    """
+    # 숫자만 남기기
+    card_number = re.sub(r"\D", "", card_number)
+
+    if len(card_number) != 16:
+        raise ValueError("유효한 카드 번호(16자리)가 아닙니다.")
+
+    return f"{card_number[:4]}-{card_number[4:8]}-****-****"

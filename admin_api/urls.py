@@ -8,13 +8,16 @@ from admin_api.views.admin_views import (
     AdminUserView,
     DashboardView,
 )
+from admin_api.views.pay_views import AdminSalesPayView
 from admin_api.views.subs_views import (
     AdminCancelReasonView,
+    AdminRefundInfoView,
     AdminRefundPendingListView,
     AdminRefundView,
     SubscriptionHistoryListView,
     SubscriptionListView,
 )
+from admin_api.views.user_views import DeleteUserMangementView, UserManagementView
 
 
 admin_patterns = [
@@ -38,6 +41,14 @@ admin_patterns = [
         AdminCancelReasonView.as_view(),
         name="구독 취소 사유 count",
     ),
+    path(
+        "admin/refund-info/<int:subs_id>/",
+        AdminRefundInfoView.as_view(),
+        name="admin-refund-info",
+    ),
     path("tally/", AdminTallyView.as_view(), name="탈리"),
     path("tally/complete/", AdminTallyCompleteView.as_view(), name="탈리 완료 처리"),
+    path("sales/", AdminSalesPayView.as_view(), name="매출 관리"),
+    path("user/", UserManagementView.as_view(), name="user-management"),
+    path("user-delete/", DeleteUserMangementView.as_view(), name="user-delete"),
 ]

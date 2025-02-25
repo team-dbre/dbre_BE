@@ -100,6 +100,9 @@ class LoginSerializer(TokenObtainPairSerializer):
         try:
             self.user = User.objects.get(email=attrs["email"])
 
+            if self.user.is_staff:
+                raise serializers.ValidationError("관리자 로그인을 이용해주세요.")
+
             # is_active 체크
             if not self.user.is_active:
                 raise serializers.ValidationError(
@@ -357,8 +360,8 @@ class PasswordChangeResponseSerializer(serializers.Serializer):
 
 
 class UserUpdateSerializer(serializers.Serializer):
-    name = serializers.CharField(max_length=50, required=False)
-    image = serializers.ImageField(required=False)
+    name = serializers.CharField(max_length=50, required=False, allow_null=True)
+    image = serializers.ImageField(required=False, allow_null=True)
 
 
 class UserUpdateResponseSerializer(serializers.Serializer):

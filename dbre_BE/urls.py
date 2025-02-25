@@ -10,8 +10,8 @@ from drf_spectacular.views import (
 
 from admin_api.urls import admin_patterns
 from payment.views import (
+    BillingKeyIssueView,
     PauseSubscriptionView,
-    PortOneWebhookView,
     RefundSubscriptionView,
     RequestSubscriptionPaymentView,
     ResumeSubscriptionView,
@@ -24,7 +24,7 @@ from plan.views import (
     PlanDetailView,
     PlanListCreateView,
 )
-from reviews.views import ReviewCreateView, ReviewDetailView
+from reviews.views import ReviewCreateView
 from subscription.views import SubscriptionView, SusHistoryView
 from tally.views import TallyWebhookAPIView
 from term.urls import term_patterns
@@ -39,7 +39,6 @@ payment_patterns = [
         RequestSubscriptionPaymentView.as_view(),
         name="request_subscription_payment",
     ),
-    path("webhook/", PortOneWebhookView.as_view(), name="portone_webhook"),
     path("billing-key/", StoreBillingKeyView.as_view(), name="store-billing-key"),
     path("refund/", RefundSubscriptionView.as_view(), name="refund_subscription"),
     path("pause/", PauseSubscriptionView.as_view(), name="pause_subscription"),
@@ -47,6 +46,7 @@ payment_patterns = [
     path(
         "update-billing-key/", UpdateBillingKeyView.as_view(), name="update_billing_key"
     ),
+    path("mobile-billing/", BillingKeyIssueView.as_view(), name="billing_issue"),
 ]
 
 # plan 관련 URL 패턴
@@ -66,7 +66,7 @@ subs_patterns = [
 # review 관련 URL 패턴
 review_patterns = [
     path("", ReviewCreateView.as_view(), name="review_subscription"),
-    path("<int:review_id>/", ReviewDetailView.as_view(), name="review_detail"),
+    # path("<int:review_id>/", ReviewDetailView.as_view(), name="review_detail"),
 ]
 
 

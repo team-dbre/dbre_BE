@@ -3,8 +3,9 @@ import logging
 from typing import Any
 
 from django.db.models import Count, Max, Min, OuterRef, Q, Subquery
+from django.utils import timezone
 from django.utils.timezone import now
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status
 from rest_framework.permissions import IsAdminUser
 from rest_framework.request import Request
@@ -13,6 +14,7 @@ from rest_framework.views import APIView
 
 from admin_api.serializers import (
     AdminCancelReasonSerializer,
+    AdminRefundInfoSerializer,
     AdminRefundSerializer,
     SubsCancelSerializer,
     SubscriptionHistorySerializer,
@@ -28,14 +30,28 @@ logger = logging.getLogger(__name__)
 
 @extend_schema(tags=["admin"])
 class SubscriptionListView(APIView):
-    """
-    구독 현황 관리
-    """
+    """구독 현황 관리"""
 
     permission_classes = [IsAdminUser]
     serializer_class = SubscriptionSerializer
 
     def get(self, request: Request) -> Response:
+        # 전체 구독자 수
+        total_subscriptions = Subs.objects.filter(user__sub_status="active").count()
+        # 오늘 일시정지 수
+        paused_subscriptions = (
+            SubHistories.objects.filter(
+                status="paused", change_date__date=timezone.now().date()
+            )
+            .values("user")
+            .distinct()
+            .count()
+        )
+        # 신규 구독 수
+        new_subscriptions_today = Subs.objects.filter(
+            start_date__date=timezone.now().date()
+        ).count()
+
         status_filter = request.GET.get("status")
         plan_filter = request.GET.get("plan")
         search_query = request.GET.get("search")
@@ -66,6 +82,7 @@ class SubscriptionListView(APIView):
             sort_by = "user__sub_status"
         elif sort_by == "expiry_date":
             sort_by = "end_date"
+
         # 첫 구독일 기준 정렬 (히스토리에서 가져옴)
         if sort_by == "change_date":
             subscriptions = subscriptions.annotate(
@@ -78,112 +95,49 @@ class SubscriptionListView(APIView):
             subscriptions = subscriptions.order_by(order_by_field)
 
         serializer = SubscriptionSerializer(subscriptions, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "dashboard": {
+                    "total_subscriptions": total_subscriptions,
+                    "paused_subscriptions": paused_subscriptions,
+                    "new_subscriptions_today": new_subscriptions_today,
+                },
+                "requests": serializer.data,
+            },
+            status=200,
+        )
 
 
-@extend_schema(tags=["admin"])
+@extend_schema(
+    tags=["admin"],
+    request=SubscriptionHistorySerializer,
+    parameters=[
+        OpenApiParameter(
+            name="user_id",
+            type=str,
+            location=OpenApiParameter.QUERY,
+            required=True,
+            description="조회할 사용자의 ID",
+        )
+    ],
+)
 class SubscriptionHistoryListView(APIView):
-    """
-    특정 사용자 구독 변경 이력 조회
-    """
+    """특정 사용자 구독 변경 이력 조회"""
 
     permission_classes = [IsAdminUser]
     serializer_class = SubscriptionHistorySerializer
 
-    def get(self, request: Request) -> Response:
-        histories = SubHistories.objects.all().order_by("-change_date")
+    def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
+        user_id = request.query_params.get("user_id")
+        if not user_id:
+            return Response({"error": "user_id가 필요합니다."}, status=400)
+
+        histories = SubHistories.objects.filter(sub__user_id=user_id).order_by(
+            "-change_date"
+        )
         serializer = SubscriptionHistorySerializer(histories, many=True)
-        return Response(serializer.data)
 
-
-# class SubsCancelledListView(APIView):
-#     permission_classes = [IsAdminUser]
-#     def get(self, request: Request) -> Response:
-
-
-# @extend_schema(tags=["admin"])
-# class SubsCanceledListView(APIView):
-#     """ 구독 취소 관리"""
-#     permission_classes = [IsAdminUser]
-#     def get(self, request: Request) -> Response:
-
-
-# @extend_schema(tags=["admin"])
-# class AdminRefundApprovalView(APIView):
-#     """관리자가 환불 승인 후 실행하는 API"""
-#
-#     permission_classes = [IsAdminUser]
-#     serializer_class = AdminRefundApprovalSerializer
-#
-#     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
-#         serializer = self.serializer_class(data=request.data)
-#         if not serializer.is_valid():
-#             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-#
-#         subscription_id = serializer.validated_data["subscription_id"]
-#
-#         try:
-#             subscription = Subs.objects.get(id=subscription_id, user__sub_status="refund_pending")
-#         except Subs.DoesNotExist:
-#             return Response({"error": "해당 구독이 환불 대기 상태가 아닙니다."}, status=status.HTTP_400_BAD_REQUEST)
-#
-#         try:
-#             # 환불 서비스 실행
-#             service = RefundService(
-#                 user=subscription.user,
-#                 subscription=subscription,
-#                 cancel_reason="Admin 승인 환불",
-#                 other_reason="",
-#             )
-#
-#             payment = Pays.objects.filter(user=subscription.user, subs=subscription).order_by("-id").first()
-#             if not payment:
-#                 raise ValueError("환불할 결제 정보를 찾을 수 없습니다.")
-#
-#             # 환불 금액 다시 계산
-#             refund_amount = service.calculate_refund_amount(payment)
-#             if refund_amount <= 0:
-#                 return Response({"error": "이미 사용한 일수가 많아 환불할 금액이 없습니다."}, status=status.HTTP_400_BAD_REQUEST)
-#
-#             # 포트원 API로 실제 환불 실행
-#             refund_response = service.request_refund(payment, refund_amount)
-#             if "error" in refund_response:
-#                 return Response(refund_response, status=status.HTTP_400_BAD_REQUEST)
-#
-#             # 환불 완료 후 구독 상태 업데이트
-#             subscription.remaining_bill_date = None
-#             subscription.next_bill_date = None
-#             subscription.end_date = now()
-#             subscription.save(
-#                 update_fields=["remaining_bill_date", "next_bill_date", "end_date"]
-#             )
-#
-#             subscription.user.sub_status = "cancelled"
-#             subscription.user.save(update_fields=["sub_status"])
-#
-#             payment.status = "REFUNDED"
-#             payment.refund_amount = refund_amount
-#             payment.save(update_fields=["status", "refund_amount"])
-#
-#
-#             history = SubHistories.objects.filter(sub=subscription, status="refund_pending").first()
-#             if history:
-#                 history.status = "cancelled"
-#                 history.change_date = now()
-#                 history.save(update_fields=["status", "change_date"])
-#
-#
-#             return Response(
-#                 {
-#                     "message": "환불 승인 완료",
-#                     "refund_amount": refund_amount,
-#                 },
-#                 status=status.HTTP_200_OK,
-#             )
-#
-#         except Exception as e:
-#             logger.error(f"관리자 환불 승인 중 오류 발생: {e}")
-#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({"history": serializer.data})
 
 
 @extend_schema(tags=["admin"])
@@ -194,6 +148,12 @@ class AdminRefundPendingListView(APIView):
 
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         """구독 취소 및 환불 리스트"""
+        # 전체 취소
+        subs_cancel_all = SubHistories.objects.filter(status="refund_pending").count()
+        # 오늘 취소
+        subs_cancel_today = SubHistories.objects.filter(
+            status="refund_pending", change_date__date=now().date()
+        ).count()
 
         latest_change_date = (
             SubHistories.objects.filter(
@@ -210,55 +170,16 @@ class AdminRefundPendingListView(APIView):
         ).select_related("sub", "sub__user")
 
         serializer = SubsCancelSerializer(latest_histories, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# class AdminRefundInfoView(APIView):
-#     permission_classes = [IsAdminUser]
-#
-#     def get(
-#         self, request: Request, subs_id: int, *args: Any, **kwargs: Any
-#     ) -> Response:
-#         """환불 승인 전 결제 정보 확인 조회하는 api(환불 팝업)"""
-#
-#         try:
-#             subscription = Subs.objects.get(
-#                 id=subs_id, user__sub_status="refund_pending"
-#             )
-#         except Subs.DoesNotExist:
-#             return Response(
-#                 {"error": "해당 구독이 환불 대기 상태가 아닙니다."},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#
-#         payment = (
-#             Pays.objects.filter(
-#                 user=subscription.user, subs=subscription, status="PAID"
-#             )
-#             .order_by("-paid_at")
-#             .first()
-#         )
-#         if not payment:
-#             return Response(
-#                 {"error": "결제 정보를 찾을 수 없습니다."},
-#                 status=status.HTTP_400_BAD_REQUEST,
-#             )
-#
-#         refund_service = RefundService(
-#             user=subscription.user,
-#             subscription=subscription,
-#             cancel_reason="환불 예정 금액 계산",
-#             other_reason="",
-#         )
-#         refund_amount = refund_service.calculate_refund_amount(payment)
-#
-#         data = {
-#             "user_name": subscription.user.name,
-#             "paid_at": payment.paid_at.strftime("%Y/%m/%d %H:%M:%S"),
-#             "paid_amount": refund_amount,
-#             "refund_amount": refund_amount,
-#         }
-#         return Response(data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "dashboard": {
+                    "sub_cancel_all": subs_cancel_all,
+                    "sub_cancel_today": subs_cancel_today,
+                },
+                "requests": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 @extend_schema(tags=["admin"], request=AdminRefundSerializer)
@@ -321,7 +242,7 @@ class AdminRefundView(APIView):
             SubHistories.objects.create(
                 sub=subscription,
                 user=subscription.user,
-                status="cancelled",
+                status="cancel",
                 change_date=now(),
                 plan=subscription.plan,
                 cancelled_reason="관리자 승인 환불",
@@ -356,4 +277,28 @@ class AdminCancelReasonView(APIView):
         )
 
         serializer = AdminCancelReasonSerializer(cancel_count, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+@extend_schema(tags=["admin"], responses=AdminRefundInfoSerializer)
+class AdminRefundInfoView(APIView):
+    permission_classes = [IsAdminUser]
+    serializer_class = AdminRefundInfoSerializer
+
+    def get(
+        self, request: Request, subs_id: int, *args: Any, **kwargs: Any
+    ) -> Response:
+        """환불 승인 전 결제 정보 확인 조회하는 API (환불 팝업)"""
+
+        try:
+            subscription = Subs.objects.get(
+                id=subs_id, user__sub_status="refund_pending"
+            )
+        except Subs.DoesNotExist:
+            return Response(
+                {"error": "해당 구독이 환불 대기 상태가 아닙니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = AdminRefundInfoSerializer(subscription)
         return Response(serializer.data, status=status.HTTP_200_OK)
