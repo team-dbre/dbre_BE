@@ -132,65 +132,26 @@ class UserManagementView(APIView):
 
 class DeleteUserMangementView(APIView):
     permission_classes = [IsAdminUser]
-    # pagination_class = CustomPagination
 
     @extend_schema(
         tags=["admin"],
         summary="Admin page 탈퇴 요청 회원 목록",
-        description="탈퇴 회원 목록 정렬 기준 (deleted_at, name, email, phone, reason)",
-        # parameters=[
-        #     OpenApiParameter(
-        #         name="order_by", description="정렬 기준 필드", type=OpenApiTypes.STR
-        #     ),
-        #     OpenApiParameter(
-        #         name="order_direction",
-        #         description="정렬 순서 (asc 또는 desc)",
-        #         type=OpenApiTypes.STR,
-        #     ),
-        #     OpenApiParameter(
-        #         name="page", description="페이지 번호", type=OpenApiTypes.INT
-        #     ),
-        #     OpenApiParameter(
-        #         name="page_size", description="페이지당 항목 수", type=OpenApiTypes.INT
-        #     ),
-        # ],
+        description="is_active: True(탈퇴 처리 전), False(탈퇴 처리 후)",
         responses={200: DeletedUserSerializer(many=True)},
     )
     def get(self, request: Request) -> Response:
-        # order_by = request.query_params.get("order_by", "deleted_at")
-        # order_direction = request.query_params.get("order_direction", "desc")
-        #
-        # valid_order_fields = {
-        #     "deleted_at": "deleted_at",
-        #     "name": "name",
-        #     "email": "email",
-        #     "phone": "phone",
-        #     "reason": "reason",
-        # }
-        #
-        # if order_by not in valid_order_fields:
-        #     order_by = "deleted_at"
-        #
-        # order_prefix = "-" if order_direction == "desc" else ""
-        # order_field = f"{order_prefix}{valid_order_fields[order_by]}"
-
         # Subquery for withdrawal reason
         reason_subquery = WithdrawalReason.objects.filter(user=OuterRef("pk")).values(
             "reason"
         )[:1]
 
         deleted_users = (
-            CustomUser.objects.filter(is_active=False)
+            CustomUser.objects.filter(deleted_at__isnull=False)  # 변경된 부분
             .annotate(reason=Subquery(reason_subquery))
-            .values("id", "deleted_at", "name", "email", "phone", "reason")
-            # .order_by(order_field)
+            .values(
+                "id", "deleted_at", "name", "email", "phone", "reason", "is_active"
+            )  # is_active 추가
         )
 
-        # paginator = self.pagination_class()
-        # paginated_users = paginator.paginate_queryset(deleted_users, request)
-
-        # serializer = DeletedUserSerializer(paginated_users, many=True)
         serializer = DeletedUserSerializer(deleted_users, many=True)
-
-        # return paginator.get_paginated_response(serializer.data)
         return Response(serializer.data)

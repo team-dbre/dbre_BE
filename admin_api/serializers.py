@@ -590,10 +590,11 @@ class AdminRefundInfoSerializer(serializers.Serializer):
 class DeletedUserSerializer(serializers.ModelSerializer):
     user = UserInfoSerializer(source="*")
     reason = serializers.CharField()
+    is_active = serializers.BooleanField()
 
     class Meta:
         model = CustomUser
-        fields = ("id", "deleted_at", "user", "reason")
+        fields = ("id", "deleted_at", "user", "reason", "is_active")
 
 
 class AdminUserListSerializer(serializers.ModelSerializer):
