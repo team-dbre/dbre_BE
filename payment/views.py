@@ -66,7 +66,6 @@ def subscription_payment_page(request: HttpRequest) -> HttpResponse:
     return render(request, "subscription_payment.html")
 
 
-@extend_schema(tags=["payment"])
 class StoreBillingKeyView(APIView):
     """포트원 Billing Key 저장 API"""
 
@@ -74,6 +73,7 @@ class StoreBillingKeyView(APIView):
 
     serializer_class = BillingKeySerializer
 
+    @extend_schema(tags=["payment"], summary="빌링키 저장")
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         """Billing Key 저장 로직"""
         serializer = self.serializer_class(
@@ -106,6 +106,7 @@ class StoreBillingKeyView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
+    @extend_schema(tags=["payment"], summary="빌링키 삭제")
     def delete(self, request: Request, *args: Any, **kwargs: Any) -> Response:
 
         user = request.user
@@ -133,6 +134,7 @@ class StoreBillingKeyView(APIView):
 
         return Response({"message": "빌링키 삭제 성공"}, status=status.HTTP_200_OK)
 
+    @extend_schema(tags=["payment"], summary="빌링키 조회")
     def get(self, request: Request, *args: Any, **kwargs: Any) -> Response:
 
         # 사용자 조회
@@ -158,13 +160,13 @@ def subscription_service(request: HttpRequest) -> HttpResponse:
     return render(request, "update.html")
 
 
-@extend_schema(tags=["payment"])
 class UpdateBillingKeyView(APIView):
     """Billing Key 변경 API"""
 
     permission_classes = [IsAuthenticated]
     serializer_class = BillingKeySerializer
 
+    @extend_schema(tags=["payment"], summary="빌링키 변경")
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         serializer = self.serializer_class(
             data=request.data, context={"request": request}
@@ -235,7 +237,6 @@ class UpdateBillingKeyView(APIView):
             )
 
 
-@extend_schema(tags=["payment"])
 class RequestSubscriptionPaymentView(APIView):
     """포트원 SDK를 사용한 정기 결제 API"""
 
@@ -243,6 +244,7 @@ class RequestSubscriptionPaymentView(APIView):
 
     serializer_class = SubscriptionPaymentSerializer
 
+    @extend_schema(tags=["payment"], summary="결제")
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         logger.info("[request_subscription_payment] 정기 결제 요청 수신")
 
@@ -346,7 +348,6 @@ class RequestSubscriptionPaymentView(APIView):
 #             )
 
 
-@extend_schema(tags=["payment"])
 class RefundSubscriptionView(APIView):
     """포트원 API를 이용한 결제 취소 및 환불 API"""
 
@@ -354,6 +355,7 @@ class RefundSubscriptionView(APIView):
 
     serializer_class = RefundSerializer
 
+    @extend_schema(tags=["payment"], summary="환불")
     def post(self, request: Request, *args: Any, **kwargs: Any) -> Response:
         """환불 요청 처리"""
         serializer = self.serializer_class(
@@ -390,13 +392,13 @@ class RefundSubscriptionView(APIView):
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-@extend_schema(tags=["payment"])
 class PauseSubscriptionView(APIView):
     """구독 중지 API"""
 
     permission_classes = [IsAuthenticated]
     serializer_class = PauseSubscriptionSerializer
 
+    @extend_schema(tags=["payment"], summary="구독 중지")
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(
             data=request.data, context={"request": request}
@@ -431,13 +433,13 @@ class PauseSubscriptionView(APIView):
         )
 
 
-@extend_schema(tags=["payment"])
 class ResumeSubscriptionView(APIView):
     """구독 재개 API"""
 
     permission_classes = [IsAuthenticated]
     serializer_class = ResumeSubscriptionSerializer
 
+    @extend_schema(tags=["payment"], summary="구독 재개")
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(
             data=request.data, context={"request": request}
@@ -471,13 +473,17 @@ class ResumeSubscriptionView(APIView):
         )
 
 
-@extend_schema(tags=["payment"], request=BillingKeyIssueSerializer)
 class BillingKeyIssueView(APIView):
     """빌링키 발급 API"""
 
     permission_classes = [IsAuthenticated]
     serializer_class = BillingKeyIssueSerializer
 
+    @extend_schema(
+        tags=["payment"],
+        request=BillingKeyIssueSerializer,
+        summary="모바일용 빌링키 발급",
+    )
     def post(self, request: Request) -> Response:
         serializer = BillingKeyIssueSerializer(data=request.data)
         if not serializer.is_valid():
@@ -557,11 +563,13 @@ def mask_card_number(card_number: str) -> str:
     return f"{card_number[:4]}-{card_number[4:8]}-****-****"
 
 
-@extend_schema(tags=["payment"], responses=GetCardSerializer)
 class GetCardInfoView(APIView):
     permission_classes = [IsAuthenticated]
     serializer_class = GetCardSerializer
 
+    @extend_schema(
+        tags=["payment"], responses=GetCardSerializer, summary="카드 정보 조회"
+    )
     def get(self, request: Request) -> Response:
         try:
             billing_key = BillingKey.objects.get(user=request.user)

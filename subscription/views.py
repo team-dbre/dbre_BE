@@ -10,7 +10,7 @@ from subscription.models import SubHistories, Subs
 from subscription.serializers import SubHistorySerializer, SubsSerializer
 
 
-@extend_schema(tags=["subscription"])
+@extend_schema(tags=["subscription"], summary="구독 정보 조회")
 class SubscriptionView(APIView):
     """
     구독 정보 조회
@@ -55,6 +55,7 @@ class SusHistoryView(APIView):
         responses={
             200: SubHistorySerializer(many=True),
         },
+        summary="구독 이력 조회",
     )
     def get(self, request: Request) -> Response:
         subs_history = SubHistories.objects.filter(user_id=request.user.id)
