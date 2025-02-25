@@ -239,7 +239,7 @@ class UserRecoveryView(APIView):
         try:
             user = CustomUser.objects.get(id=user_id, deleted_at__isnull=False)
 
-            if not user.id_active:
+            if not user.is_active:
                 return Response(
                     {"error": "아직 탈퇴 처리되지 않은 회원입니다."},
                     status=status.HTTP_400_BAD_REQUEST,
