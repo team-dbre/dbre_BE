@@ -623,3 +623,20 @@ class ConfirmUserDeletionResponseSerializer(serializers.Serializer):
 # 에러 응답을 위한 시리얼라이저
 class ErrorResponseSerializer(serializers.Serializer):
     error = serializers.CharField()
+
+
+class UserRecoveryRequestSerializer(serializers.Serializer):
+    user_id = serializers.CharField(required=True)
+
+
+class UserRecoveryResponseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ["id", "name", "email", "is_deletion_confirmed", "deleted_at"]
+        read_only_fields = [
+            "id",
+            "name",
+            "email",
+            "is_deletion_confirmed",
+            "deleted_at",
+        ]

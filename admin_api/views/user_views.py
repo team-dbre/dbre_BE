@@ -1,9 +1,8 @@
 from django.db.models import Case, CharField, Count, OuterRef, Q, Subquery, Value, When
 from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema
-from rest_framework import serializers, status
+from rest_framework import status
 
 # from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
@@ -18,6 +17,8 @@ from admin_api.serializers import (
     ErrorResponseSerializer,
     UserManagementResponseSerializer,
     UserManagementSerializer,
+    UserRecoveryRequestSerializer,
+    UserRecoveryResponseSerializer,
 )
 from payment.models import Pays
 from subscription.models import Subs
@@ -207,5 +208,52 @@ class DeleteUserMangementView(APIView):
                 {
                     "error": f"회원 {user_id} 을 찾을 수 없거나 탈퇴를 요청한 회원이 아닙니다."
                 },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+
+class UserRecoveryView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(
+        tags=["admin"],
+        summary="탈퇴 처리된 회원 복구",
+        description="탈퇴 처리된 회원을 복구합니다.",
+        request=UserRecoveryRequestSerializer,
+        responses={
+            200: UserRecoveryResponseSerializer,
+            400: ErrorResponseSerializer,
+            404: ErrorResponseSerializer,
+        },
+    )
+    def post(self, request: Request) -> Response:
+        serializer = UserRecoveryRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                ErrorResponseSerializer({"error": serializer.errors}).data,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        user_id = serializer.validated_data["user_id"]
+
+        try:
+            user = CustomUser.objects.get(id=user_id, deleted_at__isnull=False)
+
+            if not user.is_active:
+                return Response(
+                    {"error": "아직 탈퇴 처리되지 않은 회원입니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            user.is_deletion_confirmed = False
+            user.is_active = True
+            user.deleted_at = None
+            user.save()
+
+            response_serializer = UserRecoveryResponseSerializer(user)
+            return Response(response_serializer.data, status=status.HTTP_200_OK)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {"error": "해당 사용자를 찾을 수 없습니다."},
                 status=status.HTTP_404_NOT_FOUND,
             )

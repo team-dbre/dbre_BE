@@ -17,7 +17,11 @@ from admin_api.views.subs_views import (
     SubscriptionHistoryListView,
     SubscriptionListView,
 )
-from admin_api.views.user_views import DeleteUserMangementView, UserManagementView
+from admin_api.views.user_views import (
+    DeleteUserMangementView,
+    UserManagementView,
+    UserRecoveryView,
+)
 
 
 admin_patterns = [
@@ -51,4 +55,5 @@ admin_patterns = [
     path("sales/", AdminSalesPayView.as_view(), name="매출 관리"),
     path("user/", UserManagementView.as_view(), name="user-management"),
     path("user-delete/", DeleteUserMangementView.as_view(), name="user-delete"),
+    path("user-recovery/", UserRecoveryView.as_view(), name="user-recovery"),
 ]
