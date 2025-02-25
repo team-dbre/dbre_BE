@@ -189,7 +189,7 @@
 > 
 > [📜 요구사항 정의서](https://docs.google.com/spreadsheets/d/1sx2uSEixh9EUacEfXV9xWmQPP07XizprTK7cfd-IcN4/edit?gid=300631716#gid=300631716)
 > 
-> [📜 ERD](https://drive.google.com/file/d/1FJnAe2LBaQWighjS9KiL0rAoLWpJ54ig/view?usp=drive_link)
+> [📜 ERD](https://private-user-images.githubusercontent.com/96615456/416760287-3ba860d7-f8b6-4471-acf1-c83615f3c62d.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDA0OTg3MjYsIm5iZiI6MTc0MDQ5ODQyNiwicGF0aCI6Ii85NjYxNTQ1Ni80MTY3NjAyODctM2JhODYwZDctZjhiNi00NDcxLWFjZjEtYzgzNjE1ZjNjNjJkLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAyMjUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMjI1VDE1NDcwNlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTc2MWY3MjI2Yjg2YTRkMmIzNzg0NDg2MzliZWNkZTg3MmNkMjk3NTUxNWIwMWQzYWFjZGVkM2Q4ZjYyYzRjODcmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.8lT_1eaIFJWii2rFUR9_iqr2n2Ope4YcwMesIqbpP9E)
 > 
 > [📜 테이블 명세서](https://docs.google.com/spreadsheets/d/1sx2uSEixh9EUacEfXV9xWmQPP07XizprTK7cfd-IcN4/edit?gid=620807028#gid=620807028)
 >
