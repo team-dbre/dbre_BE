@@ -18,7 +18,8 @@ from drf_spectacular.utils import (
     OpenApiParameter,
     OpenApiResponse,
     extend_schema,
-    extend_schema_view, inline_serializer,
+    extend_schema_view,
+    inline_serializer,
 )
 from rest_framework import serializers, status
 from rest_framework.generics import CreateAPIView, GenericAPIView
@@ -619,9 +620,9 @@ class UserPhoneCheckView(APIView):
         responses={
             200: PhoneCheckResponseSerializer,
             403: inline_serializer(
-                name='UserPhoneCheckErrorSerializer',
-                fields={'message': serializers.CharField()}
-            )
+                name="UserPhoneCheckErrorSerializer",
+                fields={"message": serializers.CharField()},
+            ),
         },
     )
     def post(self, request: Request) -> Response:
@@ -671,9 +672,9 @@ class PasswordResetView(APIView):
         responses={
             200: PasswordResetResponseSerializer,
             403: inline_serializer(
-                name='PasswordResetErrorSerializer',
-                fields={'message': serializers.CharField()}
-            )
+                name="PasswordResetErrorSerializer",
+                fields={"message": serializers.CharField()},
+            ),
         },
     )
     def post(self, request: Request) -> Response:
