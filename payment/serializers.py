@@ -342,3 +342,24 @@ class ResumeSubscriptionSerializer(serializers.ModelSerializer):
     #         logger.warning(f"유저 {instance.user.id}의 빌링키가 없음")
     #
     #     return instance
+
+
+class BillingKeyIssueSerializer(serializers.Serializer):
+    """빌링키 발급 요청 Serializer"""
+
+    number = serializers.CharField(max_length=16, help_text="카드 번호 (숫자만)")
+    expiry_year = serializers.CharField(
+        max_length=2, help_text="유효 기간 만료 연도 (2자리)"
+    )
+    expiry_month = serializers.CharField(
+        max_length=2, help_text="유효 기간 만료 월 (2자리)"
+    )
+    birth_or_business_registration_number = serializers.CharField(
+        max_length=10,
+        allow_null=True,
+        required=False,
+        help_text="생년월일 (yyMMdd) 또는 사업자 등록 번호 (10자리, 숫자만)",
+    )
+    password_two_digits = serializers.CharField(
+        max_length=2, allow_null=True, required=False, help_text="비밀번호 앞 2자리"
+    )
