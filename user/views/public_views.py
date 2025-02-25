@@ -616,7 +616,7 @@ class UserPhoneCheckView(APIView):
         summary="휴대폰 번호로 계정 확인(계정찾기)",
         description="휴대폰 번호로 가입된 계정이 있는지 확인하고 가입 방식을 반환합니다.",
         request=PhoneCheckRequestSerializer,
-        responses={200: PhoneCheckResponseSerializer},
+        responses={200: PhoneCheckResponseSerializer, 403: serializers.Serializer},
     )
     def post(self, request: Request) -> Response:
         serializer = PhoneCheckRequestSerializer(data=request.data)
@@ -628,6 +628,12 @@ class UserPhoneCheckView(APIView):
 
         try:
             user = CustomUser.objects.get(phone=phone)
+
+            if not user.is_active:
+                return Response(
+                    {"message": "이 계정은 현재 비활성화 상태입니다."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             # provider가 없는 경우는 일반 회원가입 유저
             provider = user.provider if user.provider else "desub"
@@ -656,7 +662,7 @@ class PasswordResetView(APIView):
         summary="비밀번호 초기화 요청(메일 발송)",
         description="이메일을 입력받아 임시 비밀번호를 생성하고 메일로 발송합니다.",
         request=PasswordResetRequestSerializer,
-        responses={200: PasswordResetResponseSerializer},
+        responses={200: PasswordResetResponseSerializer, 403: serializers.Serializer},
     )
     def post(self, request: Request) -> Response:
         serializer = self.serializer_class(data=request.data)
@@ -667,6 +673,12 @@ class PasswordResetView(APIView):
 
         try:
             user = CustomUser.objects.get(email=email)
+
+            if not user.is_active:
+                return Response(
+                    {"message": "이 계정은 현재 비활성화 상태입니다."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             # 임시 비밀번호 생성 (12자리)
             temp_password = get_random_string(12)
