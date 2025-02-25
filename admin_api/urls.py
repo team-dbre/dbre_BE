@@ -2,6 +2,7 @@
 from django.urls import path
 
 from admin_api.views.admin_views import (
+    AdminLoginLogListView,
     AdminLoginView,
     AdminTallyCompleteView,
     AdminTallyView,
@@ -56,4 +57,5 @@ admin_patterns = [
     path("user/", UserManagementView.as_view(), name="user-management"),
     path("user-delete/", DeleteUserMangementView.as_view(), name="user-delete"),
     path("user-recovery/", UserRecoveryView.as_view(), name="user-recovery"),
+    path("login-log/", AdminLoginLogListView.as_view(), name="login-log"),
 ]
