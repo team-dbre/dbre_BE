@@ -8,8 +8,14 @@ from django.db.models import Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.timezone import now
-from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    OpenApiResponse,
+    extend_schema,
+)
 from rest_framework import serializers, status
+from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -210,6 +216,57 @@ class AdminUserView(APIView):
         admin_users = CustomUser.objects.filter(is_staff=True)
         serializer = AdminUserListSerializer(admin_users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=["admin"],
+        summary="지정된 ID의 관리자 계정을 삭제",
+        description="staff(admin) 계정 삭제 (master만 가능)",
+        parameters=[
+            OpenApiParameter(
+                name="id",
+                description="삭제할 staff의 ID",
+                required=True,
+                type=str,
+                location=OpenApiParameter.QUERY,
+            )
+        ],
+        responses={
+            204: OpenApiResponse(description="계정 삭제 성공"),
+            403: OpenApiResponse(description="권한 없음"),
+            404: OpenApiResponse(description="해당 ID의 staff 계정을 찾을 수 없음"),
+        },
+    )
+    def delete(self, request: Request) -> Response:
+        if not request.user.is_superuser:
+            return Response(
+                {"message": "슈퍼유저만 관리자 계정을 삭제할 수 있습니다."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        id = request.query_params.get("id")
+        if not id:
+            return Response(
+                {"message": "삭제할 staff의 ID를 제공해야 합니다."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            staff_user = get_object_or_404(CustomUser, id=id, is_staff=True)
+
+            if staff_user.is_superuser:
+                return Response(
+                    {"message": "Master 계정은 삭제할 수 없습니다."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            staff_user.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        except NotFound:
+            return Response(
+                {"message": "해당 ID의 staff 계정을 찾을 수 없습니다."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
 
 class AdminLoginView(TokenObtainPairView):
