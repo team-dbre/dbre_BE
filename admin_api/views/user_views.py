@@ -246,6 +246,7 @@ class UserRecoveryView(APIView):
                 )
 
             user.is_deletion_confirmed = False
+            user.is_active = True
             user.deleted_at = None
             user.save()
 
