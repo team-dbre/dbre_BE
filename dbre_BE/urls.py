@@ -11,6 +11,7 @@ from drf_spectacular.views import (
 from admin_api.urls import admin_patterns
 from payment.views import (
     BillingKeyIssueView,
+    GetCardInfoView,
     PauseSubscriptionView,
     RefundSubscriptionView,
     RequestSubscriptionPaymentView,
@@ -47,6 +48,7 @@ payment_patterns = [
         "update-billing-key/", UpdateBillingKeyView.as_view(), name="update_billing_key"
     ),
     path("mobile-billing/", BillingKeyIssueView.as_view(), name="billing_issue"),
+    path("card-info/", GetCardInfoView.as_view(), name="get_card_info"),
 ]
 
 # plan 관련 URL 패턴

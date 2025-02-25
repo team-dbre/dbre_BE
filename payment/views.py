@@ -35,6 +35,7 @@ from . import portone_client2
 from .serializers import (
     BillingKeyIssueSerializer,
     BillingKeySerializer,
+    GetCardSerializer,
     PauseSubscriptionSerializer,
     RefundResponseSerializer,
     RefundSerializer,
@@ -554,3 +555,20 @@ def mask_card_number(card_number: str) -> str:
         raise ValueError("유효한 카드 번호(16자리)가 아닙니다.")
 
     return f"{card_number[:4]}-{card_number[4:8]}-****-****"
+
+
+@extend_schema(tags=["payment"], responses=GetCardSerializer)
+class GetCardInfoView(APIView):
+    permission_classes = [IsAuthenticated]
+    serializer_class = GetCardSerializer
+
+    def get(self, request: Request) -> Response:
+        try:
+            billing_key = BillingKey.objects.get(user=request.user)
+            serializer = GetCardSerializer(billing_key)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except BillingKey.DoesNotExist:
+            return Response(
+                {"error": "등록된 카드 정보가 없습니다"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
