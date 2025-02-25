@@ -146,11 +146,11 @@ class DeleteUserMangementView(APIView):
         )[:1]
 
         deleted_users = (
-            CustomUser.objects.filter(deleted_at__isnull=False)  # 변경된 부분
+            CustomUser.objects.filter(deleted_at__isnull=False)
             .annotate(reason=Subquery(reason_subquery))
             .values(
                 "id", "deleted_at", "name", "email", "phone", "reason", "is_active"
-            )  # is_active 추가
+            )
         )
 
         serializer = DeletedUserSerializer(deleted_users, many=True)
