@@ -149,7 +149,7 @@ class DeleteUserMangementView(APIView):
             CustomUser.objects.filter(deleted_at__isnull=False)
             .annotate(reason=Subquery(reason_subquery))
             .values(
-                "id", "deleted_at", "name", "email", "phone", "reason", "is_active"
+                "id", "deleted_at", "name", "email", "phone", "reason", "is_deletion_confirmed"
             )
         )
 
