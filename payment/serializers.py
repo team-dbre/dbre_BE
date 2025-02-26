@@ -9,7 +9,11 @@ from portone_server_sdk._generated.common.card import Card
 from rest_framework import serializers
 
 from payment.models import BillingKey
-from payment.utils import cancel_scheduled_payments, create_scheduled_payment
+from payment.utils import (
+    cancel_scheduled_payments,
+    create_scheduled_payment,
+    update_billing_key_info,
+)
 from plan.models import Plans
 from subscription.models import SubHistories, Subs
 from user.models import CustomUser
@@ -42,6 +46,7 @@ class BillingKeySerializer(serializers.ModelSerializer):
                 "billing_key": validated_data["billing_key"],
             },
         )
+        update_billing_key_info(billing_key, billing_key.billing_key)
         return billing_key
 
 
