@@ -696,6 +696,21 @@ socialaccount = ["pyjwt[crypto] (>=1.7)", "requests (>=2.0.0)", "requests-oauthl
 steam = ["python3-openid (>=3.0.8)"]
 
 [[package]]
+name = "django-apscheduler"
+version = "0.7.0"
+description = "APScheduler for Django"
+optional = false
+python-versions = "*"
+files = [
+    {file = "django_apscheduler-0.7.0-py3-none-any.whl", hash = "sha256:869d489775420245c9455d55e35f663c856a33ebfc996d92938f786ffb8730ce"},
+    {file = "django_apscheduler-0.7.0.tar.gz", hash = "sha256:30d61a2ba98615922fc2c9782f84bba342ec0c5ed63384d686d71ea90a1a4318"},
+]
+
+[package.dependencies]
+apscheduler = ">=3.2,<4.0"
+django = ">=4.2"
+
+[[package]]
 name = "django-cors-headers"
 version = "4.7.0"
 description = "django-cors-headers is a Django application for handling the server headers required for Cross-Origin Resource Sharing (CORS)."
@@ -2801,4 +2816,4 @@ propcache = ">=0.2.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "3.12.6"
-content-hash = "1269c7be2b7128df0bd7bc3815b0aef56e05b9544e766b658980f9a6d6c9e4bf"
+content-hash = "045f8ad573409cc87450531b1cd615463d1a386966d9110512f94b35da806f56"

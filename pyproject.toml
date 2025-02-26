@@ -28,6 +28,7 @@ pillow = "10.3.0"
 python-dateutil = "^2.9.0.post0"
 poetry = "==1.8.5"
 drf-spectacular = "^0.28.0"
+django-apscheduler = "^0.7.0"
 
 [build-system]
 requires = ["poetry-core>=1.8.5"]

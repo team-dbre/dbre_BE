@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "admin_api",
     "apscheduler",
+    'django_apscheduler',
 ]
 
 
@@ -135,6 +136,11 @@ LANGUAGE_CODE = "ko-kr"
 TIME_ZONE = "Asia/Seoul"
 USE_I18N = True
 USE_TZ = False
+
+# APScheduler 설정
+SCHEDULER_CONFIG = {
+    "apscheduler.timezone": "Asia/Seoul",
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 

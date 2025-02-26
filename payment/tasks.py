@@ -1,7 +1,7 @@
 import logging
 
-from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.interval import IntervalTrigger
+# from apscheduler.schedulers.background import BackgroundScheduler
+# from apscheduler.triggers.interval import IntervalTrigger
 from django.utils.timezone import now
 
 from payment.services.payment_service import SubscriptionPaymentService
@@ -36,8 +36,8 @@ def process_scheduled_payments() -> str:
     return f"{subscriptions.count()}개의 구독 갱신 처리 완료"
 
 
-def start() -> None:
-    """APScheduler 실행"""
-    scheduler = BackgroundScheduler()
-    scheduler.add_job(process_scheduled_payments, trigger=IntervalTrigger(days=1))
-    scheduler.start()
+# def start() -> None:
+#     """APScheduler 실행"""
+#     scheduler = BackgroundScheduler()
+#     scheduler.add_job(process_scheduled_payments, trigger=IntervalTrigger(days=1))
+#     scheduler.start()
