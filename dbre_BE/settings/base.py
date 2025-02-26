@@ -70,7 +70,7 @@ INSTALLED_APPS = [
     "allauth.socialaccount.providers.google",
     "admin_api",
     "apscheduler",
-    'django_apscheduler',
+    "django_apscheduler",
 ]
 
 
