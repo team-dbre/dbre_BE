@@ -179,7 +179,7 @@ class SubscriptionPaymentService:
                         currency="KRW",
                         customer=customer_info,
                     ),
-                    time_to_pay=get_time_to_pay(),
+                    time_to_pay=convert_to_kst(next_billing_date),
                 )
             )
             logger.info(f" [PortOne API] 결제 예약 성공: {schedule_response.__dict__}")
@@ -585,7 +585,8 @@ class SubscriptionService:
             return {"error": "구독 재개 중 오류 발생"}
 
 
-def get_time_to_pay() -> str:
+def convert_to_kst(dt: datetime) -> str:
+    """UTC 시간을 KST (한국 표준시)로 변환하여 ISO 8601 형식으로 반환"""
     kst_offset = timedelta(hours=9)
-    now_kst = datetime.now(timezone.utc) + kst_offset
-    return now_kst.replace(microsecond=0).isoformat()
+    dt_kst = dt.astimezone(timezone.utc) + kst_offset
+    return dt_kst.replace(microsecond=0).isoformat()
