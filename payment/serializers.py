@@ -46,7 +46,6 @@ class BillingKeySerializer(serializers.ModelSerializer):
                 "billing_key": validated_data["billing_key"],
             },
         )
-        update_billing_key_info(billing_key, billing_key.billing_key)
         return billing_key
 
 
