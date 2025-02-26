@@ -208,7 +208,7 @@ def create_scheduled_payment(
                 currency="KRW",
                 customer=customer_info,
             ),
-            time_to_pay=next_billing_date.isoformat(),
+            time_to_pay=convert_to_kst(next_billing_date),
         )
 
         logger.info(f"포트원 예약 결제 응답: {schedule_response}")
@@ -317,7 +317,7 @@ def schedule_new_payment(
                 currency="KRW",
                 customer=customer_info,
             ),
-            time_to_pay=new_schedule_date.isoformat(),  # 기존 결제일 적용
+            time_to_pay=convert_to_kst(new_schedule_date),
         )
 
         # 포트원 응답 확인
@@ -438,3 +438,10 @@ def update_billing_key_info(billing_key_obj: BillingKey, new_billing_key: str) -
     logger.info(
         f"[UpdateBillingKey] 카드 정보 업데이트 완료: {billing_key_obj.card_name}, {billing_key_obj.card_number}"
     )
+
+
+def convert_to_kst(dt: datetime) -> str:
+    """UTC 시간을 KST (한국 표준시)로 변환하여 ISO 8601 형식으로 반환"""
+    kst_offset = timedelta(hours=9)
+    dt_kst = dt.astimezone(timezone.utc) + kst_offset
+    return dt_kst.replace(microsecond=0).isoformat()

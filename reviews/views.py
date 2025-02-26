@@ -15,6 +15,7 @@ from reviews.serializers import ReviewGetSerializer, ReviewSerializer
     tags=["review"],
     responses={200: ReviewSerializer()},
     request=ReviewSerializer,
+    summary="리뷰",
 )
 class ReviewCreateView(APIView):
 
