@@ -19,3 +19,5 @@ PORTONE_CHANNEL_KEY = settings.IMP_CHANNEL_KEY
 portone_client2 = PaymentClient(secret=settings.IMP_API_SECRET or "")
 billing_key_client = BillingKeyClient(secret=settings.IMP_API_SECRET or "")
 PORTONE_API_URL2 = "https://api.portone.io/payments"
+
+default_app_config = "payment.apps.PaymentConfig"
