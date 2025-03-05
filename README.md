@@ -11,8 +11,8 @@
 ## 🗣️ 프로젝트 발표 영상 & 발표 문서
 
 > ### 🗓️ 2024.00-.00 - 2024.00.00
-> ### [📺 발표 영상 예시]()
-> ### [📑 발표 문서 예시]()
+> ### [📺 발표 영상](https://www.youtube.com/watch?v=DOwkZVKYllg)
+> ### [📑 발표 문서](https://www.figma.com/deck/DUZ7qyZ0AEHKUF4Nvoq9nx/Desub?node-id=1-266&t=WtNEZSnfO8r3Jx1q-1)
 
 ---
 
@@ -188,6 +188,8 @@
 
 ## 📋  Documents
 > [📜 API 명세서](https://docs.google.com/spreadsheets/d/1sx2uSEixh9EUacEfXV9xWmQPP07XizprTK7cfd-IcN4/edit?gid=803125353#gid=803125353)
+> 
+> [📜 Swagger 문서](https://api.desub.kr/api/docs/)
 > 
 > [📜 요구사항 정의서](https://docs.google.com/spreadsheets/d/1sx2uSEixh9EUacEfXV9xWmQPP07XizprTK7cfd-IcN4/edit?gid=300631716#gid=300631716)
 > 
