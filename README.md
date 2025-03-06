@@ -11,11 +11,12 @@
 ## 🗣️ 프로젝트 발표 영상 & 발표 문서
 
 > ### 🗓️ 2024.00-.00 - 2024.00.00
-> ### [📺 발표 영상 예시]()
-> ### [📑 발표 문서 예시]()
+> ### [📺 발표 영상](https://www.youtube.com/watch?v=DOwkZVKYllg)
+> ### [📑 발표 문서](https://www.figma.com/deck/DUZ7qyZ0AEHKUF4Nvoq9nx/Desub?node-id=1-266&t=WtNEZSnfO8r3Jx1q-1)
 
 ---
 
+<!--
 ## 🖥️ 서비스 소개
 |   메인 화면 1  |  메인 화면 2  |   소셜 로그인 1   |
 |:--------:|:------:|:--------:|
@@ -41,6 +42,7 @@
 |:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|:----------:|:--------------------------:|
 | <img src="https://lh5.googleusercontent.com/KjjwMZ-FrNzlWa0N8IS2iYAr92JgQCMbOFEwZdtScJJwzt5XY70dZII-OyvHUSbWV_7qBNCFc3pslsgcfLX9ZAM54y0F5pRrO4e2EMv8ee1K2FzzieU5ByAn9UhBqB08Fk1pHUaGvRzxGt8HhFh17fongw=s2048" alt="UpateRating"> |<img src="https://lh5.googleusercontent.com/KRfPZ8P2TzvLBeHAcApzzHDn6xbkCYp8Z9sDmWSifQNwQwfC7HAjczd-KHVs5dGbKhi2AO5O3A8wd8mewcze3TKb_yM9y5-PHQVE7axz5HVdWsI1alg2-qatjn7G2c0Y6Fx786KMjoiIULFLpCoQx6HWJA=s2048" alt="MyPage1"> | <img src="https://lh5.googleusercontent.com/eTvLqwjRti-QhqDMWb2gMw692w-qmSipvVOjcXHvVIetlZiBvgbzcDakCP2Gmf-kGNx5vuZ5fm_3ExzA3_rD3ux4DaDK5xaP90LgDmK6fRYPdGdolg8dJrdh8fKT7a4H0odAYlK9t4-iLxjtsbinTnz0ow=s2048" alt="MyPage2"> |
 ---
+-->
 
 ## 🧰 사용 스택
 
@@ -48,7 +50,7 @@
 ### 🔧 System Architecture
 
 <img src="https://private-user-images.githubusercontent.com/96615456/416748284-dda9b6af-0973-4635-b31c-b288b734bd94.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3NDA0OTcwMjYsIm5iZiI6MTc0MDQ5NjcyNiwicGF0aCI6Ii85NjYxNTQ1Ni80MTY3NDgyODQtZGRhOWI2YWYtMDk3My00NjM1LWIzMWMtYjI4OGI3MzRiZDk0LnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNTAyMjUlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjUwMjI1VDE1MTg0NlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTI4Y2QzMzcyMjM1NTE1NDYyZjZiNGFhZTgxZTQ3MWIyOWU5YjY5NzZlZWIzMGQ1NTM4MTZkZmEwMGU5ZjJlZWMmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0In0.bDT0I6uq4LMeOyR9Mb0aFI0VVtgU--sFg7PWkoHFBpg"/>
-
+<!--
 ### FE
 <div align=center>
   <img src="https://img.shields.io/badge/html5-E34F26?style=for-the-badge&logo=html5&logoColor=white"> 
@@ -88,7 +90,7 @@
   <img src="https://img.shields.io/badge/query dsl-008FC7?style=for-the-badge&logo=queryDsl&logoColor=white">
   <br>
 </div>
-
+-->
 
 --- 
 
@@ -186,6 +188,8 @@
 
 ## 📋  Documents
 > [📜 API 명세서](https://docs.google.com/spreadsheets/d/1sx2uSEixh9EUacEfXV9xWmQPP07XizprTK7cfd-IcN4/edit?gid=803125353#gid=803125353)
+> 
+> [📜 Swagger 문서](https://api.desub.kr/api/docs/)
 > 
 > [📜 요구사항 정의서](https://docs.google.com/spreadsheets/d/1sx2uSEixh9EUacEfXV9xWmQPP07XizprTK7cfd-IcN4/edit?gid=300631716#gid=300631716)
 > 
